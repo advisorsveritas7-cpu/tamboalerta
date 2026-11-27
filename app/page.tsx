@@ -11,6 +11,7 @@ import { AccesoCoordinador } from '@/components/AccesoCoordinador';
 import { Bienvenida } from '@/components/Bienvenida';
 import { VentanaSimulacion } from '@/components/VentanaSimulacion';
 import { SelectorCiudad } from '@/components/SelectorCiudad';
+import { Buscador, type Resultado } from '@/components/Buscador';
 import { CIUDAD_INICIAL, ciudadPorId, nombreCorto } from '@/lib/ciudades';
 import type { Aviso, DatosTerritorio, Reporte } from '@/lib/tipos';
 import { obtenerPronostico, type Pronostico } from '@/lib/clima';
@@ -36,6 +37,8 @@ export default function Inicio() {
   const [idCiudad, setIdCiudad] = useState<string | null>(null);
   const [selector, setSelector] = useState(false);
   const [sinDatos, setSinDatos] = useState(false);
+  const [buscador, setBuscador] = useState(false);
+  const [destacar, setDestacar] = useState<{ n: string; sub: string; p: [number, number]; s?: number; k: number } | null>(null);
   const ciudad = ciudadPorId(idCiudad ?? CIUDAD_INICIAL);
   const [clima, setClima] = useState<Pronostico | null>(null);
   const [errorClima, setErrorClima] = useState(false);
@@ -223,7 +226,7 @@ export default function Inicio() {
 
   return (
     <div className="flex h-[100dvh] flex-col">
-      <Encabezado enLinea={enLinea} onAyuda={() => setGuia(true)} />
+      <Encabezado enLinea={enLinea} onAyuda={() => setGuia(true)} onBuscar={() => setBuscador(true)} />
 
       {/* Banda de aviso vigente más alto */}
       {avisos[0] && (
@@ -251,6 +254,7 @@ export default function Inicio() {
             onElegirPunto={elegirPunto}
             enfocar={enfocar}
             vista={{ centro: ciudad.centro, zoom: ciudad.zoom, nombre: nombreCorto(ciudad) }}
+            destacar={destacar}
           />}
 
           {/* Simulador sobre el mapa */}
@@ -267,7 +271,7 @@ export default function Inicio() {
           </div>
 
           {/* Ciudad, leyenda y simulación (columna superior izquierda) */}
-          <div className="absolute left-3 top-3 z-[500] flex max-w-[60%] flex-col items-start gap-2">
+          <div className="ta-col-izq absolute left-3 top-3 z-[500] flex max-w-[60%] flex-col items-start gap-2 transition-opacity">
             <button
               type="button"
               onClick={() => setSelector(true)}
@@ -395,6 +399,22 @@ export default function Inicio() {
       />
 
       {animacion && <VentanaSimulacion centro={ciudad.centro} nombre={nombreCorto(ciudad)} onCerrar={() => setAnimacion(false)} />}
+
+      {buscador && (
+        <Buscador
+          reportes={reportes}
+          onCerrar={() => setBuscador(false)}
+          onElegir={(r: Resultado) => {
+            setBuscador(false);
+            setPestana('mapa');
+            cambiarCiudad(r.c);
+            if (r.t !== 'ciudad') {
+              const c = ciudadPorId(r.c);
+              setDestacar({ n: r.n, sub: `${r.t === 'calle' ? 'Calle' : 'Barrio o caserío'} · ${nombreCorto(c)}`, p: r.p, s: r.s, k: Date.now() });
+            }
+          }}
+        />
+      )}
 
       {selector && <SelectorCiudad actual={ciudad.id} onElegir={(c) => cambiarCiudad(c.id)} onCerrar={() => setSelector(false)} />}
 

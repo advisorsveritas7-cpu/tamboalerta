@@ -194,3 +194,24 @@ body {
 @keyframes ta-sube { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes ta-aparece { from { transform: translateX(12px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* Punto encontrado con la lupa */
+.ta-buscado {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #14B8D4; border: 4px solid #fff;
+  box-shadow: 0 0 0 0 rgba(20, 184, 212, 0.7);
+  animation: ta-pulso 1.6s infinite;
+}
+@keyframes ta-pulso { 70% { box-shadow: 0 0 0 18px rgba(20, 184, 212, 0); } 100% { box-shadow: 0 0 0 0 rgba(20, 184, 212, 0); } }
+
+/* Botón Mapa / Satélite */
+.ta-capa {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  width: 52px; padding: 6px 0 5px; border-radius: 12px;
+  background: rgba(10, 25, 47, 0.92); border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff; font-size: 18px; line-height: 1; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+.ta-capa span { font-size: 9px; font-weight: 700; letter-spacing: 0.02em; }
+.ta-capa:hover { border-color: #14B8D4; }
+body.ta-popup-abierto .ta-col-izq { opacity: 0; pointer-events: none; }

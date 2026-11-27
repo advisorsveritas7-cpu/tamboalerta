@@ -16,6 +16,7 @@ type Props = {
   onElegirPunto: (p: [number, number]) => void;
   enfocar: { id: string; n: number } | null;
   vista: { centro: [number, number]; zoom: number; nombre: string };
+  destacar: { n: string; sub: string; p: [number, number]; s?: number; k: number } | null;
 };
 
 const ESTILO_AGUA: Record<string, L.PolylineOptions> = {
@@ -64,7 +65,28 @@ function popupCalle(c: Calle, lluvia: number) {
   </div></div>`;
 }
 
-export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, puntoElegido, onElegirPunto, enfocar, vista }: Props) {
+function popupBuscado(d: NonNullable<Props['destacar']>, lluvia: number, reportes: Reporte[]) {
+  const cerca = reportes.filter((r) => Math.hypot((r.lat - d.p[0]) * 111320, (r.lon - d.p[1]) * 111320 * Math.cos((d.p[0] * Math.PI) / 180)) <= 400);
+  let riesgo = '';
+  if (d.s != null) {
+    const e = estadoCalle({ s: d.s } as Calle, lluvia);
+    const T = Math.round(umbralMm(d.s));
+    riesgo = `<span class="ta-chip" style="background:${COLOR_ESTADO[e]};color:#0A192F">${ETIQUETA_ESTADO[e]} con ${esc(nombreLluvia(lluvia).toLowerCase())}</span>
+      <small>En su parte más baja empieza a inundarse desde ≈ ${T} mm (${esc(nombreLluvia(T).toLowerCase())}).</small>`;
+  }
+  const rep = cerca.length
+    ? `<p><b>🚨 ${cerca.length} ${cerca.length === 1 ? 'reporte' : 'reportes'} de vecinos a menos de 400 m.</b> El último: ${esc(NIVELES[cerca[0].nivel].etiqueta)} en ${esc(cerca[0].lugar)}, ${esc(horaCorta(cerca[0].creado))}.</p>`
+    : '<p>Sin reportes de vecinos cerca por ahora.</p>';
+  return `<div class="ta-popup" style="width:240px"><div class="ta-popup-body">
+    <strong>${esc(d.n)}</strong><small>${esc(d.sub)}</small>${riesgo}${rep}
+    <small style="opacity:.75">Mira los colores de las calles alrededor del punto celeste.</small>
+  </div></div>`;
+}
+
+export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, puntoElegido, onElegirPunto, enfocar, vista, destacar }: Props) {
+  const reportesRef = useRef(reportes);
+  reportesRef.current = reportes;
+  const marcaBuscada = useRef<L.Marker | null>(null);
   const vistaInicial = useRef(vista);
   const div = useRef<HTMLDivElement>(null);
   const mapa = useRef<L.Map | null>(null);
@@ -84,15 +106,50 @@ export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, pun
     if (!div.current || mapa.current) return;
     const m = L.map(div.current, { center: vistaInicial.current.centro, zoom: vistaInicial.current.zoom, zoomControl: false, preferCanvas: true, attributionControl: true });
     L.control.zoom({ position: 'topright' }).addTo(m);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    const oscuro = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       subdomains: 'abcd',
       maxZoom: 19,
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/attributions">CARTO</a>',
-    }).addTo(m);
+    });
+    const satelite = L.layerGroup([
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        maxNativeZoom: 18,
+        attribution: 'Imágenes © Esri, Maxar, Earthstar Geographics',
+      }),
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19, opacity: 0.9 }),
+    ]);
+    let enSatelite = false;
+    try { enSatelite = localStorage.getItem('ta:satelite') === '1'; } catch {}
+    (enSatelite ? satelite : oscuro).addTo(m);
+    // Botón para cambiar entre mapa y vista satelital
+    const Boton = L.Control.extend({
+      onAdd() {
+        const b = L.DomUtil.create('button', 'ta-capa');
+        b.type = 'button';
+        const pintarBoton = () => {
+          b.innerHTML = enSatelite ? '🗺️<span>Mapa</span>' : '🛰️<span>Satélite</span>';
+          b.setAttribute('aria-label', enSatelite ? 'Ver mapa' : 'Ver vista satelital');
+        };
+        pintarBoton();
+        L.DomEvent.disableClickPropagation(b);
+        L.DomEvent.on(b, 'click', () => {
+          enSatelite = !enSatelite;
+          if (enSatelite) { m.removeLayer(oscuro); satelite.addTo(m); } else { m.removeLayer(satelite); oscuro.addTo(m); }
+          try { localStorage.setItem('ta:satelite', enSatelite ? '1' : '0'); } catch {}
+          pintarBoton();
+        });
+        return b;
+      },
+    });
+    new Boton({ position: 'topright' }).addTo(m);
     m.on('click', (e: L.LeafletMouseEvent) => {
       if (seleccionandoRef.current) onElegirRef.current([e.latlng.lat, e.latlng.lng]);
     });
     capaReportes.current = L.layerGroup().addTo(m);
+    // Mientras hay un globo de información abierto se ocultan los botones de la izquierda para que no lo tapen.
+    m.on('popupopen', () => document.body.classList.add('ta-popup-abierto'));
+    m.on('popupclose', () => document.body.classList.remove('ta-popup-abierto'));
     mapa.current = m;
     return () => {
       m.remove();
@@ -107,6 +164,34 @@ export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, pun
     const c = m.getCenter();
     if (Math.abs(c.lat - vista.centro[0]) + Math.abs(c.lng - vista.centro[1]) > 0.05) m.flyTo(vista.centro, vista.zoom, { duration: 1.2 });
   }, [vista.centro, vista.zoom]);
+
+  // Lugar encontrado con la lupa: el mapa vuela hacia él y muestra su riesgo y los reportes cercanos
+  useEffect(() => {
+    const m = mapa.current;
+    if (!m || !destacar) return;
+    marcaBuscada.current?.remove();
+    const mk = L.marker(destacar.p, {
+      zIndexOffset: 2000,
+      icon: L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -10], html: '<div class="ta-buscado"></div>' }),
+    }).addTo(m);
+    mk.bindPopup(() => {
+      // Si es un barrio o caserío, se usa la calle más cercana para estimar su riesgo.
+      let d = destacar;
+      if (d.s == null && capaCalles.current.length) {
+        let mejor = Infinity, s = 0;
+        for (const { c } of capaCalles.current)
+          for (const q of c.c) {
+            const dd = (q[0] - d.p[0]) ** 2 + (q[1] - d.p[1]) ** 2;
+            if (dd < mejor) { mejor = dd; s = c.s; }
+          }
+        if (mejor < 0.004 ** 2) d = { ...d, s };
+      }
+      return popupBuscado(d, lluviaRef.current, reportesRef.current);
+    }, { maxWidth: 280, minWidth: 240 });
+    marcaBuscada.current = mk;
+    m.flyTo(destacar.p, 17, { duration: 1.4 });
+    m.once('moveend', () => mk.openPopup());
+  }, [destacar]);
 
   // Calles, cauces y caseríos
   useEffect(() => {

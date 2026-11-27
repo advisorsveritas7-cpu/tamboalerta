@@ -9,7 +9,8 @@
     "datos": "node scripts/generar-datos.mjs",
     "movil:sync": "npx cap sync",
     "movil:android": "npx cap open android",
-    "movil:ios": "npx cap open ios"
+    "movil:ios": "npx cap open ios",
+    "prebuild": "node scripts/indice.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^7.4.3",
