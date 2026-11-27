@@ -10,6 +10,7 @@ import { ListaReportes } from '@/components/ListaReportes';
 import { AccesoCoordinador } from '@/components/AccesoCoordinador';
 import { Bienvenida } from '@/components/Bienvenida';
 import { VentanaSimulacion } from '@/components/VentanaSimulacion';
+import { Vista3D } from '@/components/Vista3D';
 import { SelectorCiudad } from '@/components/SelectorCiudad';
 import { Buscador, type Resultado } from '@/components/Buscador';
 import { CIUDAD_INICIAL, ciudadPorId, nombreCorto } from '@/lib/ciudades';
@@ -38,6 +39,7 @@ export default function Inicio() {
   const [selector, setSelector] = useState(false);
   const [sinDatos, setSinDatos] = useState(false);
   const [buscador, setBuscador] = useState(false);
+  const [vista3d, setVista3d] = useState(false);
   const [destacar, setDestacar] = useState<{ n: string; sub: string; p: [number, number]; s?: number; k: number } | null>(null);
   const ciudad = ciudadPorId(idCiudad ?? CIUDAD_INICIAL);
   const [clima, setClima] = useState<Pronostico | null>(null);
@@ -309,6 +311,13 @@ export default function Inicio() {
             >
               ▶ Pronóstico de lluvia
             </button>
+            <button
+              type="button"
+              onClick={() => setVista3d(true)}
+              className="flex items-center gap-1.5 rounded-full border border-white/20 bg-navy-900/90 px-3 py-1.5 text-[11px] font-extrabold text-white shadow-lg"
+            >
+              🏔️ Vista 3D
+            </button>
           </div>
 
           {sinDatos && (
@@ -401,6 +410,10 @@ export default function Inicio() {
       />
 
       {animacion && <VentanaSimulacion centro={ciudad.centro} nombre={nombreCorto(ciudad)} onCerrar={() => setAnimacion(false)} />}
+
+      {vista3d && (
+        <Vista3D datos={datos} lluvia={lluvia} centro={ciudad.centro} nombre={nombreCorto(ciudad)} onCerrar={() => setVista3d(false)} />
+      )}
 
       {buscador && (
         <Buscador
