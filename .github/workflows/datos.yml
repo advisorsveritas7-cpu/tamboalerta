@@ -1,0 +1,68 @@
+# Descarga calles (OpenStreetMap) y relieve (Copernicus vía Open-Meteo) de las ciudades de Piura
+# y guarda public/data/<ciudad>.json en el repositorio. Se lanza a mano desde la pestaña Actions.
+name: Datos de ciudades
+
+on:
+  workflow_dispatch:
+    inputs:
+      ciudades:
+        description: 'Ciudades separadas por coma (ids de lib/ciudades.json)'
+        default: 'piura,catacaos,la-union,sullana,chulucanas,paita,talara,sechura,huancabamba,ayabaca'
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  lista:
+    runs-on: ubuntu-latest
+    outputs:
+      matriz: ${{ steps.m.outputs.matriz }}
+    steps:
+      - id: m
+        run: echo "matriz=$(echo '${{ inputs.ciudades }}' | jq -Rc 'split(",") | map(gsub(" ";""))')" >> "$GITHUB_OUTPUT"
+
+  ciudad:
+    needs: lista
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        id: ${{ fromJson(needs.lista.outputs.matriz) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/generar-ciudad.mjs ${{ matrix.id }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: datos-${{ matrix.id }}
+          path: public/data/${{ matrix.id }}.json
+
+  guardar:
+    needs: ciudad
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: nuevos
+          pattern: datos-*
+          merge-multiple: true
+      - name: Guardar en el repositorio y publicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la nuevos || exit 0
+          cp nuevos/*.json public/data/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data
+          git diff --cached --quiet && exit 0
+          git commit -m "Datos de ciudades: $(ls nuevos | sed 's/.json//' | tr '\n' ' ')"
+          git push
+          gh workflow run publicar.yml --ref main

@@ -1,0 +1,13 @@
+[
+  { "id": "tambogrande", "nombre": "Tambogrande", "provincia": "Piura", "centro": [-4.928, -80.344], "zoom": 15, "radioKm": 4.5 },
+  { "id": "piura", "nombre": "Piura · Castilla · 26 de Octubre", "corto": "Piura", "provincia": "Piura", "centro": [-5.192, -80.640], "zoom": 13, "radioKm": 7 },
+  { "id": "catacaos", "nombre": "Catacaos", "provincia": "Piura", "centro": [-5.266, -80.676], "zoom": 15, "radioKm": 2.5 },
+  { "id": "la-union", "nombre": "La Unión", "provincia": "Piura", "centro": [-5.402, -80.743], "zoom": 15, "radioKm": 2 },
+  { "id": "sullana", "nombre": "Sullana · Bellavista", "corto": "Sullana", "provincia": "Sullana", "centro": [-4.902, -80.686], "zoom": 14, "radioKm": 4.5 },
+  { "id": "chulucanas", "nombre": "Chulucanas", "provincia": "Morropón", "centro": [-5.094, -80.162], "zoom": 15, "radioKm": 3 },
+  { "id": "paita", "nombre": "Paita", "provincia": "Paita", "centro": [-5.088, -81.113], "zoom": 14, "radioKm": 3.5 },
+  { "id": "talara", "nombre": "Talara", "provincia": "Talara", "centro": [-4.578, -81.270], "zoom": 14, "radioKm": 4 },
+  { "id": "sechura", "nombre": "Sechura", "provincia": "Sechura", "centro": [-5.557, -80.822], "zoom": 15, "radioKm": 2.5 },
+  { "id": "huancabamba", "nombre": "Huancabamba", "provincia": "Huancabamba", "centro": [-5.239, -79.451], "zoom": 15, "radioKm": 2 },
+  { "id": "ayabaca", "nombre": "Ayabaca", "provincia": "Ayabaca", "centro": [-4.637, -79.714], "zoom": 15, "radioKm": 2 }
+]
