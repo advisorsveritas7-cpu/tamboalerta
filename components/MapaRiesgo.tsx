@@ -45,7 +45,7 @@ function iconoReporte(r: Reporte) {
 function popupReporte(r: Reporte) {
   const n = NIVELES[r.nivel];
   return `<div class="ta-popup">
-    ${r.foto_url ? `<img src="${esc(r.foto_url)}" alt="Foto del reporte" loading="lazy"/>` : ''}
+    ${r.video_url ? `<video src="${esc(r.video_url)}" controls playsinline preload="metadata" muted style="width:100%;max-height:200px;background:#000"></video>` : r.foto_url ? `<img src="${esc(r.foto_url)}" alt="Foto del reporte" loading="lazy"/>` : ''}
     <div class="ta-popup-body">
       <span class="ta-chip" style="background:${n.color}">${esc(n.etiqueta)}</span>
       <strong>${esc(r.lugar)}</strong>

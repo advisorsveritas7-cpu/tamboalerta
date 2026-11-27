@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { NivelAgua, Reporte } from '@/lib/tipos';
 import { NIVELES } from '@/lib/formato';
 import { comprimirFoto } from '@/lib/foto';
+import { prepararVideo } from '@/lib/video';
 import { crearReporte } from '@/lib/datos';
 
 type Props = {
@@ -28,6 +29,25 @@ export function ModalReporte({ abierto, onCerrar, punto, setPunto, onElegirEnMap
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputFoto = useRef<HTMLInputElement>(null);
+  const inputVideo = useRef<HTMLInputElement>(null);
+  const [video, setVideo] = useState<{ blob: Blob; tipo: string; segundos: number } | null>(null);
+  const [vistaVideo, setVistaVideo] = useState<string | null>(null);
+  const [avanceVideo, setAvanceVideo] = useState<number | null>(null);
+
+  async function elegirVideo(f: File | undefined) {
+    if (!f) return;
+    setError(null);
+    setAvanceVideo(0);
+    try {
+      const v = await prepararVideo(f, setAvanceVideo);
+      setVideo(v);
+      setVistaVideo(URL.createObjectURL(v.blob));
+    } catch (e) {
+      setError((e as Error).message || 'No se pudo usar ese video.');
+    } finally {
+      setAvanceVideo(null);
+    }
+  }
 
   useEffect(() => () => { if (vista) URL.revokeObjectURL(vista); }, [vista]);
 
@@ -66,6 +86,8 @@ export function ModalReporte({ abierto, onCerrar, punto, setPunto, onElegirEnMap
     setDescripcion('');
     setFoto(null);
     setVista(null);
+    setVideo(null);
+    setVistaVideo(null);
     setPesoOriginal(null);
     setPunto(null);
     setError(null);
@@ -81,6 +103,7 @@ export function ModalReporte({ abierto, onCerrar, punto, setPunto, onElegirEnMap
       const r = await crearReporte(
         { lat: punto[0], lon: punto[1], lugar: lugar.trim(), nivel, descripcion: descripcion.trim() || null },
         foto,
+        video,
       );
       onCreado(r);
       limpiar();
@@ -169,7 +192,7 @@ export function ModalReporte({ abierto, onCerrar, punto, setPunto, onElegirEnMap
 
         {/* 3. Foto */}
         <fieldset className="mt-4">
-          <legend className="ta-legend">3 · Foto (recomendada)</legend>
+          <legend className="ta-legend">3 · Foto o video (recomendado)</legend>
           <input ref={inputFoto} id="rep-foto" type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => elegirFoto(e.target.files?.[0])} />
           {vista ? (
             <div className="relative mt-1.5 overflow-hidden rounded-xl">
@@ -187,6 +210,20 @@ export function ModalReporte({ abierto, onCerrar, punto, setPunto, onElegirEnMap
           ) : (
             <button type="button" onClick={() => inputFoto.current?.click()} className="ta-opcion mt-1.5 w-full py-4">
               {comprimiendo ? 'Comprimiendo…' : '📷 Tomar o elegir foto'}
+            </button>
+          )}
+          <input ref={inputVideo} type="file" accept="video/*" capture="environment" className="hidden" onChange={(e) => elegirVideo(e.target.files?.[0])} />
+          {vistaVideo ? (
+            <div className="relative mt-2 overflow-hidden rounded-xl bg-black">
+              <video src={vistaVideo} controls playsInline muted className="max-h-48 w-full" />
+              <div className="flex items-center justify-between bg-black/60 px-3 py-1.5 text-[11px] text-white">
+                <span>Video de {video?.segundos} s · {video ? kb(video.blob.size) : ''}</span>
+                <button type="button" onClick={() => { setVideo(null); setVistaVideo(null); }} className="font-semibold text-cian-300">Quitar</button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" disabled={avanceVideo != null} onClick={() => inputVideo.current?.click()} className="ta-opcion mt-2 w-full py-3">
+              {avanceVideo != null ? `Achicando video… ${Math.round(avanceVideo * 100)}%` : '🎥 Grabar video corto (máx. 15 s)'}
             </button>
           )}
         </fieldset>

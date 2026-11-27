@@ -26,6 +26,7 @@ export type Reporte = {
   nivel: NivelAgua;
   descripcion: string | null;
   foto_url: string | null;
+  video_url?: string | null;
 };
 
 export type NivelAviso = 'amarillo' | 'naranja' | 'rojo';

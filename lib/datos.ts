@@ -42,7 +42,7 @@ export async function listarReportes(): Promise<Reporte[]> {
   return leer<Reporte[]>(K_REP, []).filter((r) => r.creado >= HACE_72H());
 }
 
-export async function crearReporte(r: Omit<Reporte, 'id' | 'creado' | 'foto_url'>, foto: Blob | null): Promise<Reporte> {
+export async function crearReporte(r: Omit<Reporte, 'id' | 'creado' | 'foto_url' | 'video_url'>, foto: Blob | null, video: { blob: Blob; tipo: string } | null = null): Promise<Reporte> {
   const sb = await supabase();
   if (sb) {
     let foto_url: string | null = null;
@@ -52,12 +52,21 @@ export async function crearReporte(r: Omit<Reporte, 'id' | 'creado' | 'foto_url'
       if (error) throw error;
       foto_url = sb.storage.from('fotos').getPublicUrl(ruta).data.publicUrl;
     }
-    const { data, error } = await sb.from('reportes').insert({ ...r, foto_url }).select().single();
+    let video_url: string | null = null;
+    if (video) {
+      const ext = video.tipo.includes('webm') ? 'webm' : video.tipo.includes('quicktime') ? 'mov' : 'mp4';
+      const ruta = `${new Date().toISOString().slice(0, 10)}/${uid()}.${ext}`;
+      const { error } = await sb.storage.from('fotos').upload(ruta, video.blob, { contentType: video.tipo, cacheControl: '31536000' });
+      if (error) throw error;
+      video_url = sb.storage.from('fotos').getPublicUrl(ruta).data.publicUrl;
+    }
+    const { data, error } = await sb.from('reportes').insert({ ...r, foto_url, ...(video_url ? { video_url } : {}) }).select().single();
     if (error) throw error;
     return data as Reporte;
   }
-  const nuevo: Reporte = { ...r, id: uid(), creado: new Date().toISOString(), foto_url: foto ? await blobADataUrl(foto) : null };
-  const todos = [nuevo, ...leer<Reporte[]>(K_REP, [])].slice(0, 40);
+  // En modo local el video solo se ve en esta sesión (no cabe en el almacenamiento del teléfono).
+  const nuevo: Reporte = { ...r, id: uid(), creado: new Date().toISOString(), foto_url: foto ? await blobADataUrl(foto) : null, video_url: video ? URL.createObjectURL(video.blob) : null };
+  const todos = [{ ...nuevo, video_url: null }, ...leer<Reporte[]>(K_REP, [])].slice(0, 40);
   escribir(K_REP, todos);
   canal?.postMessage({ tipo: 'reporte', dato: nuevo });
   return nuevo;

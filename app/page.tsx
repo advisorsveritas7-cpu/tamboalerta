@@ -364,7 +364,7 @@ export default function Inicio() {
             ['mapa', 'Mapa', 'M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Zm0 0v14m6-12v14'],
             ['avisos', 'Avisos', 'M12 3 2 20h20L12 3Zm0 6v5m0 3v.5'],
             ['clima', 'Clima', 'M7 18a5 5 0 1 1 1-9.9A6 6 0 0 1 19 10a4 4 0 0 1-1 8H7Zm1 3 1-2m3 2 1-2m3 2 1-2'],
-            ['reportes', `Reportes${reportes.length ? ` (${reportes.length})` : ''}`, 'M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12Zm0-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z'],
+            ['reportes', `En vivo${reportes.length ? ` (${reportes.length})` : ''}`, 'M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12Zm0-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z'],
           ] as [Pestana, string, string][]
         ).map(([k, t, d]) => (
           <button
