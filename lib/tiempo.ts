@@ -14,16 +14,44 @@ export function horaQueLlega(umbral: number, acum: number[]): number | null {
   return null;
 }
 
-const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
-/** "sáb 3 p. m." a partir de la hora local que entrega Open-Meteo (America/Lima). */
-export function fechaCorta(t: string): string {
-  const [f, hm] = t.split('T');
+/** Fecha de hoy en Lima como "AAAA-MM-DD". */
+export function hoyLima(): string {
+  return new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10);
+}
+/** Hora actual de Lima como "AAAA-MM-DDTHH:00", para comparar con las horas del pronóstico. */
+export function horaActualLima(): string {
+  return new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 13) + ':00';
+}
+
+/** "hoy 27 de noviembre", "mañana 28 de noviembre" o "sábado 29 de noviembre". */
+export function fechaDia(t: string, corto = false): string {
+  const f = t.slice(0, 10);
   const [y, m, d] = f.split('-').map(Number);
-  const dia = DIAS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
-  const h = Number(hm.slice(0, 2));
+  const hoy = hoyLima();
+  const manana = new Date(Date.UTC(+hoy.slice(0, 4), +hoy.slice(5, 7) - 1, +hoy.slice(8, 10) + 1)).toISOString().slice(0, 10);
+  const pre = f === hoy ? 'hoy' : f === manana ? 'mañana' : DIAS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  return `${pre} ${d}${corto ? ' ' + MESES[m - 1].slice(0, 3) : ' de ' + MESES[m - 1]}`;
+}
+
+/** "en la madrugada", "en la mañana", "en la tarde" o "en la noche". */
+export function parteDia(t: string): string {
+  const h = Number(t.slice(11, 13));
+  return h < 6 ? 'en la madrugada' : h < 12 ? 'en la mañana' : h < 19 ? 'en la tarde' : 'en la noche';
+}
+
+/** "mañana 28 de noviembre en la tarde" */
+export function cuandoDia(t: string, corto = false): string {
+  return `${fechaDia(t, corto)} ${parteDia(t)}`;
+}
+
+/** "hoy 27 nov, 3 p. m." (para la línea de tiempo). */
+export function fechaCorta(t: string): string {
+  const h = Number(t.slice(11, 13));
   const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${dia} ${h12} ${h < 12 ? 'a. m.' : 'p. m.'}`;
+  return `${fechaDia(t, true)}, ${h12} ${h < 12 ? 'a. m.' : 'p. m.'}`;
 }
 
 /** "en 14 h" / "en menos de 1 h" relativo a ahora. */

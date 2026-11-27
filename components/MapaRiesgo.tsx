@@ -6,7 +6,7 @@ import type { Calle, DatosTerritorio, Reporte } from '@/lib/tipos';
 import { COLOR_ESTADO, ETIQUETA_ESTADO, estadoCalle, umbralMm } from '@/lib/riesgo';
 import { nombreLluvia } from '@/lib/lluvia';
 import type { Hora } from '@/lib/clima';
-import { acumulado, enCuanto, fechaCorta, horaQueLlega } from '@/lib/tiempo';
+import { acumulado, cuandoDia, enCuanto, horaQueLlega } from '@/lib/tiempo';
 import { NIVELES, enlaceWhatsApp, horaCorta } from '@/lib/formato';
 import type { Ruta } from '@/lib/evacuacion';
 
@@ -62,11 +62,11 @@ function popupReporte(r: Reporte) {
 function bloqueTiempo(T: number, horas: Hora[] | null) {
   if (!horas?.length) return '';
   const i = horaQueLlega(T, acumulado(horas));
-  if (i == null) return '<p>⏱️ Con el pronóstico de las próximas 48 h <b>no llegaría a inundarse</b>.</p>';
+  if (i == null) return '<p>📅 Con el pronóstico de hoy y mañana <b>no llegaría a inundarse</b>.</p>';
   const falta = enCuanto(horas[i].t);
   return falta === 'ya'
-    ? '<p>⏱️ Según el pronóstico <b>ya puede estar inundándose</b>. Si estás ahí, sal a una zona alta.</p>'
-    : `<p>⏱️ Según el pronóstico se inundaría el <b>${esc(fechaCorta(horas[i].t))}</b>: te quedan unas <b>${esc(falta.replace('en ', ''))}</b> para salir.</p>`;
+    ? '<p>📅 Según el pronóstico <b>ya puede estar inundándose</b>. Si estás ahí, sal a una zona alta.</p>'
+    : `<p>📅 Según el pronóstico se inundaría <b>${esc(cuandoDia(horas[i].t))}</b>. Sal antes a una zona alta.</p>`;
 }
 
 function popupCalle(c: Calle, lluvia: number, horas: Hora[] | null) {

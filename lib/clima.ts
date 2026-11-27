@@ -1,11 +1,13 @@
 
+import { horaActualLima } from './tiempo';
+
 export type Hora = { t: string; temp: number; prob: number; mm: number };
 export type Pronostico = {
   actualizado: string;
   actual: { temp: number; humedad: number; mm: number; codigo: number };
   horas: Hora[]; // próximas 48 h
-  total48: number;
-  total24: number;
+  total48: number; // toda la lluvia de hoy y mañana
+  dias: { fecha: string; mm: number }[]; // lluvia de cada día (hoy desde ahora, y mañana)
   probMax: number;
   offline?: boolean;
 };
@@ -17,7 +19,7 @@ export async function obtenerPronostico([lat, lon]: [number, number], idCiudad: 
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     '&current=temperature_2m,relative_humidity_2m,precipitation,weather_code' +
     '&hourly=temperature_2m,precipitation_probability,precipitation' +
-    '&forecast_hours=48&timezone=America%2FLima';
+    '&forecast_days=2&timezone=America%2FLima';
   try {
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 12000);
@@ -25,12 +27,16 @@ export async function obtenerPronostico([lat, lon]: [number, number], idCiudad: 
     clearTimeout(to);
     if (!r.ok) throw new Error(String(r.status));
     const j = await r.json();
-    const horas: Hora[] = j.hourly.time.map((t: string, i: number) => ({
-      t,
-      temp: j.hourly.temperature_2m[i],
-      prob: j.hourly.precipitation_probability[i] ?? 0,
-      mm: j.hourly.precipitation[i] ?? 0,
-    }));
+    // Hoy (desde la hora actual) y mañana completos, en hora de Lima.
+    const ahora = horaActualLima();
+    const horas: Hora[] = j.hourly.time
+      .map((t: string, i: number) => ({
+        t,
+        temp: j.hourly.temperature_2m[i],
+        prob: j.hourly.precipitation_probability[i] ?? 0,
+        mm: j.hourly.precipitation[i] ?? 0,
+      }))
+      .filter((h: Hora) => h.t >= ahora);
     const suma = (hs: Hora[]) => Math.round(hs.reduce((a, h) => a + h.mm, 0) * 10) / 10;
     const p: Pronostico = {
       actualizado: new Date().toISOString(),
@@ -42,7 +48,7 @@ export async function obtenerPronostico([lat, lon]: [number, number], idCiudad: 
       },
       horas,
       total48: suma(horas),
-      total24: suma(horas.slice(0, 24)),
+      dias: [...new Set(horas.map((h) => h.t.slice(0, 10)))].map((fecha) => ({ fecha, mm: suma(horas.filter((h) => h.t.startsWith(fecha))) })),
       probMax: Math.max(0, ...horas.map((h) => h.prob)),
     };
     try { localStorage.setItem(CLAVE, JSON.stringify(p)); } catch {}

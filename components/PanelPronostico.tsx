@@ -4,7 +4,7 @@ import type { Calle } from '@/lib/tipos';
 import { COLOR_ESTADO, estadoCalle, umbralMm } from '@/lib/riesgo';
 import { nombreLluvia } from '@/lib/lluvia';
 import type { Hora } from '@/lib/clima';
-import { acumulado, enCuanto, fechaCorta, horaQueLlega } from '@/lib/tiempo';
+import { acumulado, cuandoDia, enCuanto, fechaCorta, fechaDia, horaQueLlega } from '@/lib/tiempo';
 
 // Panel del pronóstico sobre el mapa. Ya no hay simulaciones: el mapa siempre muestra las zonas que se
 // afectarían con la lluvia pronosticada (o con el aviso oficial de SENAMHI si el vecino lo eligió).
@@ -22,7 +22,7 @@ export function PanelPronostico({ calles, horas, error, lluvia, onLluvia, aviso,
   const acum = useMemo(() => (horas ? acumulado(horas) : []), [horas]);
   const ultima = Math.max(0, acum.length - 1);
   const hayLluvia = acum.length > 0 && acum[ultima] > 0;
-  // Hora del pronóstico que se está mirando: por defecto, el final de las 48 h (todo lo que va a llover).
+  // Hora del pronóstico que se está mirando: por defecto, el final de mañana (todo lo que va a llover).
   const [horaSel, setHoraSel] = useState(ultima);
   useEffect(() => setHoraSel(ultima), [ultima, horas]);
   useEffect(() => {
@@ -88,10 +88,10 @@ export function PanelPronostico({ calles, horas, error, lluvia, onLluvia, aviso,
     : !horas
       ? error ? 'Sin conexión: no se pudo leer el pronóstico.' : 'Leyendo el pronóstico…'
       : !hayLluvia
-        ? 'El pronóstico no trae lluvia para las próximas 48 horas.'
+        ? 'El pronóstico no trae lluvia para hoy ni mañana.'
         : horaSel >= ultima
-          ? `Con toda la lluvia pronosticada para 48 h (${nombreLluvia(lluvia).toLowerCase()}, ${lluvia} mm)`
-          : `Hasta el ${fechaCorta(horas[horaSel].t)} (${enCuanto(horas[horaSel].t)}): ${lluvia} mm`;
+          ? `Con toda la lluvia pronosticada para hoy y mañana (${nombreLluvia(lluvia).toLowerCase()}, ${lluvia} mm)`
+          : `Hasta ${fechaCorta(horas[horaSel].t)}: ${lluvia} mm`;
 
   if (oculto) {
     return (
@@ -159,10 +159,15 @@ export function PanelPronostico({ calles, horas, error, lluvia, onLluvia, aviso,
             onChange={(e) => { parar(); setHoraSel(Number(e.target.value)); }}
             className="ta-slider mt-1.5 w-full"
           />
-          <div className="mt-0.5 flex justify-between text-[10px] text-texto-sec">
-            <span>Ahora</span>
-            <span>+24 h</span>
-            <span>+48 h</span>
+          {/* Días debajo de la línea de tiempo */}
+          <div className="relative mt-0.5 h-3 text-[10px] text-texto-sec">
+            {horas.map((h, i) =>
+              i === 0 || h.t.endsWith('T00:00') ? (
+                <span key={h.t} className="absolute whitespace-nowrap" style={{ left: `${(i / ultima) * 100}%`, transform: i ? 'translateX(-50%)' : undefined }}>
+                  {i ? '▲ ' : ''}{fechaDia(h.t, true)}
+                </span>
+              ) : null,
+            )}
           </div>
         </div>
       )}
@@ -174,7 +179,7 @@ export function PanelPronostico({ calles, horas, error, lluvia, onLluvia, aviso,
             onClick={animar}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-cian/50 py-1.5 text-xs font-bold text-cian hover:bg-cian/10"
           >
-            {animando ? '■ Detener' : '▶ Ver cómo avanza (48 h)'}
+            {animando ? '■ Detener' : '▶ Ver cómo avanza hoy y mañana'}
           </button>
         )}
         <button
@@ -183,7 +188,7 @@ export function PanelPronostico({ calles, horas, error, lluvia, onLluvia, aviso,
           aria-expanded={detalle}
           className={`rounded-xl border border-white/10 px-3 py-1.5 text-xs font-semibold text-texto-sec hover:text-white ${horas && hayLluvia ? '' : 'flex-1'}`}
         >
-          {detalle ? 'Menos' : '⏱️ ¿Cuánto tiempo queda?'}
+          {detalle ? 'Menos' : '📅 ¿Cuándo se inunda?'}
         </button>
       </div>
 
@@ -191,24 +196,24 @@ export function PanelPronostico({ calles, horas, error, lluvia, onLluvia, aviso,
         <div className="mt-3 max-h-[28dvh] overflow-y-auto border-t border-white/10 pt-3 lg:max-h-[55vh]">
           {horas && hayLluvia ? (
             <>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-aviso-naranja">Tiempo para salir, según el pronóstico</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-aviso-naranja">Cuándo se inundaría, según el pronóstico</p>
               {primeras.length ? (
                 <ul className="mt-1 flex flex-col gap-1">
                   {primeras.map(([n, i]) => (
                     <li key={n} className="flex items-center justify-between gap-2 rounded-md bg-navy-700 px-2 py-1 text-[11px]">
                       <button type="button" className="truncate text-left text-white" onClick={() => { parar(); setHoraSel(i); }}>{n}</button>
                       <span className="shrink-0 font-semibold text-aviso-naranja">
-                        {enCuanto(horas[i].t) === 'ya' ? 'ya en riesgo' : `quedan ${enCuanto(horas[i].t).replace('en ', '')}`} · {fechaCorta(horas[i].t)}
+                        {enCuanto(horas[i].t) === 'ya' ? 'ya en riesgo' : cuandoDia(horas[i].t, true)}
                       </span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="mt-1 text-[11px] text-texto-sec">Con la lluvia pronosticada para 48 h ninguna calle llega a inundarse.</p>
+                <p className="mt-1 text-[11px] text-texto-sec">Con la lluvia pronosticada para hoy y mañana ninguna calle llega a inundarse.</p>
               )}
             </>
           ) : (
-            <p className="text-[11px] text-texto-sec">Cuando el pronóstico traiga lluvia, aquí verás cuánto tiempo queda antes de que se inunde cada calle.</p>
+            <p className="text-[11px] text-texto-sec">Cuando el pronóstico traiga lluvia, aquí verás qué día se inundaría cada calle.</p>
           )}
           <p className="mt-3 text-[10px] leading-snug text-texto-sec/80">
             Cálculo aproximado según la altura del terreno, la cercanía a ríos y quebradas y el pronóstico de lluvia. Es una guía para prevenir y no

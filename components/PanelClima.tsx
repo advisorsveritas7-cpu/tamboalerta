@@ -1,6 +1,7 @@
 'use client';
 import type { Pronostico } from '@/lib/clima';
 import { describirCodigo } from '@/lib/clima';
+import { fechaDia } from '@/lib/tiempo';
 
 type Props = { p: Pronostico | null; error: boolean; onSimular: (mm: number) => void; onAnimacion: () => void; ciudad: string };
 
@@ -17,10 +18,10 @@ export function PanelClima({ p, error, onSimular, onAnimacion, ciudad }: Props) 
   if (!p) {
     return (
       <section className="rounded-2xl border border-white/10 bg-navy-800 p-4">
-        <h2 className="font-display text-sm font-bold uppercase tracking-wider text-texto-sec">Pronóstico 48 h · {ciudad}</h2>
+        <h2 className="font-display text-sm font-bold uppercase tracking-wider text-texto-sec">Pronóstico de hoy y mañana · {ciudad}</h2>
         <p className="mt-3 text-sm text-texto-sec">{error
             ? typeof window !== 'undefined' && (window as unknown as { __TA_VISTA_PREVIA?: boolean }).__TA_VISTA_PREVIA
-              ? 'La vista previa no puede consultar Open-Meteo. En la app publicada aquí aparece el pronóstico en vivo de 48 horas.'
+              ? 'La vista previa no puede consultar Open-Meteo. En la app publicada aquí aparece el pronóstico en vivo de hoy y mañana.'
               : 'No se pudo cargar el pronóstico. Revisa tu conexión.'
             : 'Cargando pronóstico…'}</p>
         {botonAnimacion}
@@ -34,7 +35,7 @@ export function PanelClima({ p, error, onSimular, onAnimacion, ciudad }: Props) 
     <section className="rounded-2xl border border-white/10 bg-navy-800 p-4" aria-labelledby="clima-titulo">
       <div className="flex items-center justify-between">
         <h2 id="clima-titulo" className="font-display text-sm font-bold uppercase tracking-wider text-texto-sec">
-          Pronóstico 48 h · {ciudad}
+          Pronóstico de hoy y mañana · {ciudad}
         </h2>
         {p.offline && <span className="text-[10px] text-aviso-naranja">sin conexión · último dato</span>}
       </div>
@@ -46,12 +47,13 @@ export function PanelClima({ p, error, onSimular, onAnimacion, ciudad }: Props) 
         </div>
       </div>
       <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <Dato t="Próx. 24 h" v={`${p.total24} mm`} />
-        <Dato t="Próx. 48 h" v={`${p.total48} mm`} />
+        {(p.dias ?? []).slice(0, 2).map((d) => (
+          <Dato key={d.fecha} t={fechaDia(d.fecha + 'T12:00', true).replace(/^./, (c) => c.toUpperCase())} v={`${d.mm} mm`} />
+        ))}
         <Dato t="Prob. máx." v={`${p.probMax}%`} />
       </dl>
       <figure className="mt-3">
-        <svg viewBox={`0 0 ${W} ${H + 14}`} className="w-full" role="img" aria-label="Lluvia por hora en las próximas 48 horas">
+        <svg viewBox={`0 0 ${W} ${H + 14}`} className="w-full" role="img" aria-label="Lluvia por hora hoy y mañana">
           {[0.5, 1].map((f) => (
             <line key={f} x1={0} x2={W} y1={H - H * f} y2={H - H * f} stroke="#CBD5E1" strokeOpacity={0.12} />
           ))}
@@ -61,11 +63,15 @@ export function PanelClima({ p, error, onSimular, onAnimacion, ciudad }: Props) 
               <rect x={i * bw + 0.5} y={H - (H * h.mm) / maxMm} width={bw - 1} height={(H * h.mm) / maxMm} fill="#14B8D4" rx={1} />
             </g>
           ))}
-          {[0, 12, 24, 36].map((i) => (
-            <text key={i} x={i * bw} y={H + 11} fontSize={8} fill="#CBD5E1">
-              {p.horas[i] ? new Date(p.horas[i].t).toLocaleString('es-PE', { weekday: 'short', hour: '2-digit' }) : ''}
-            </text>
-          ))}
+          {/* Rótulo de cada día donde empieza */}
+          {p.horas.map((h, i) =>
+            i === 0 || h.t.endsWith('T00:00') ? (
+              <g key={'d' + h.t}>
+                {i > 0 && <line x1={i * bw} x2={i * bw} y1={0} y2={H} stroke="#CBD5E1" strokeOpacity={0.35} strokeDasharray="2 2" />}
+                <text x={i * bw + 2} y={H + 11} fontSize={8} fill="#CBD5E1">{fechaDia(h.t, true)}</text>
+              </g>
+            ) : null,
+          )}
         </svg>
         <figcaption className="flex items-center gap-3 text-[10px] text-texto-sec">
           <span className="flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-sm bg-cian" /> mm/hora (máx {maxMm.toFixed(1)})</span>
