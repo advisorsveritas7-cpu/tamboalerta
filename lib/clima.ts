@@ -1,0 +1,71 @@
+import { TAMBOGRANDE } from './config';
+
+export type Hora = { t: string; temp: number; prob: number; mm: number };
+export type Pronostico = {
+  actualizado: string;
+  actual: { temp: number; humedad: number; mm: number; codigo: number };
+  horas: Hora[]; // próximas 48 h
+  total48: number;
+  total24: number;
+  probMax: number;
+  offline?: boolean;
+};
+
+const CLAVE = 'ta:clima';
+
+export async function obtenerPronostico(): Promise<Pronostico> {
+  const [lat, lon] = TAMBOGRANDE;
+  const url =
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    '&current=temperature_2m,relative_humidity_2m,precipitation,weather_code' +
+    '&hourly=temperature_2m,precipitation_probability,precipitation' +
+    '&forecast_hours=48&timezone=America%2FLima';
+  try {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 12000);
+    const r = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(to);
+    if (!r.ok) throw new Error(String(r.status));
+    const j = await r.json();
+    const horas: Hora[] = j.hourly.time.map((t: string, i: number) => ({
+      t,
+      temp: j.hourly.temperature_2m[i],
+      prob: j.hourly.precipitation_probability[i] ?? 0,
+      mm: j.hourly.precipitation[i] ?? 0,
+    }));
+    const suma = (hs: Hora[]) => Math.round(hs.reduce((a, h) => a + h.mm, 0) * 10) / 10;
+    const p: Pronostico = {
+      actualizado: new Date().toISOString(),
+      actual: {
+        temp: j.current.temperature_2m,
+        humedad: j.current.relative_humidity_2m,
+        mm: j.current.precipitation,
+        codigo: j.current.weather_code,
+      },
+      horas,
+      total48: suma(horas),
+      total24: suma(horas.slice(0, 24)),
+      probMax: Math.max(0, ...horas.map((h) => h.prob)),
+    };
+    try { localStorage.setItem(CLAVE, JSON.stringify(p)); } catch {}
+    return p;
+  } catch (e) {
+    try {
+      const guardado = localStorage.getItem(CLAVE);
+      if (guardado) return { ...JSON.parse(guardado), offline: true };
+    } catch {}
+    throw e;
+  }
+}
+
+export function describirCodigo(c: number): string {
+  if (c === 0) return 'Despejado';
+  if (c <= 3) return 'Parcialmente nublado';
+  if (c <= 48) return 'Neblina';
+  if (c <= 57) return 'Llovizna';
+  if (c <= 65) return c >= 65 ? 'Lluvia fuerte' : 'Lluvia';
+  if (c <= 67) return 'Lluvia helada';
+  if (c <= 82) return c >= 81 ? 'Chubascos fuertes' : 'Chubascos';
+  if (c >= 95) return 'Tormenta';
+  return 'Nublado';
+}

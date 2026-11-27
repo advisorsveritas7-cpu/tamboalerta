@@ -1,0 +1,104 @@
+Tambogrande|town|-493535|-8034240
+Huascar|village|-488644|-8042684
+Chica alta|village|-489249|-8041217
+Pedregal|village|-488727|-8038312
+Huaca Blanca|village|-490613|-8034725
+Locuto|village|-494845|-8034920
+Esperanza de mi Cautivo|village|-497650|-8023008
+Cruce de Vega|village|-494395|-8026028
+Palominos|town|-492910|-8024876
+Las Mónicas|village|-493015|-8028469
+La Pala|village|-492161|-8031377
+Malingas|village|-495234|-8025027
+La Greda Nueva|village|-498100|-8033772
+La Cruceta|town|-483879|-8026836
+Santa Rosa de Yaranche|village|-483675|-8023913
+Bello Horizonte Tejedores|village|-484578|-8022504
+Guaraguaos Bajo|village|-491813|-8022057
+San Pablo|hamlet|-483397|-8037278
+San Eloy|hamlet|-486645|-8041267
+Hualtaco II|village|-485849|-8031998
+Peñarol|hamlet|-486851|-8035069
+Vallecito 15-8 Hualtaco I|village|-482980|-8034347
+San Martin Cp3 Hualtaco I|village|-484071|-8034225
+Wiracocha|village|-486712|-8039961
+Santa Elena de Yahuar Huaca|village|-482963|-8042029
+San Pedro|hamlet|-497883|-8024286
+Las Palmeras de Yaranche|hamlet|-483228|-8022150
+Nueva Esperanza|village|-486410|-8029140
+Ocoto Alto|village|-494109|-8038952
+El Carmen|village|-499164|-8040580
+San Jose Obrero|hamlet|-482376|-8041687
+CP12 José Olaya|village|-484827|-8036269
+Mayta Capac|village|-484598|-8039106
+Cp 15 La Libertad|village|-482959|-8028066
+San Pedrillo - Hualtaco III|village|-489534|-8029082
+El Limon Malingas|hamlet|-496066|-8025395
+Manco Capac - Sector Curva Palomino|hamlet|-491233|-8023649
+Carneros|hamlet|-483282|-8028989
+Nuevo San Pedro|hamlet|-489430|-8027508
+Fundo Santa Angelica|hamlet|-494764|-8027578
+La Loma|neighbourhood|-495371|-8035154
+Charan Coposo CP-7|village|-489733|-8026848
+Palos Santos|hamlet|-484739|-8028657
+El Palto Malingas|hamlet|-496240|-8026421
+Los Zapatas|village|-497387|-8025727
+El Carbon|village|-496260|-8027558
+O.n.p.r.a.|hamlet|-494935|-8024692
+Malingas Grande|village|-496810|-8026174
+Pedregal Alto|village|-488734|-8039598
+Rancho Las Vegas|hamlet|-490398|-8034573
+El Papayo|village|-499348|-8031786
+Jesús de Nazareth|neighbourhood|-493347|-8034716
+Santa Cruz|quarter|-492950|-8034065
+Manuel A. Odria|hamlet|-489173|-8032905
+Pueblo Libre|village|-494302|-8023926
+Pueblo Nuevo de San Lorenzo|village|-485573|-8022295
+La Angostura|village|-494499|-8037868
+Señor de los Milagros|neighbourhood|-491049|-8042580
+El Mango Malingas|village|-494781|-8024538
+Jesus Maria|village|-486749|-8024704
+Amaru Inca Yupanqui|village|-488364|-8041560
+Chico Alto|hamlet|-490046|-8042328
+CP-10 Hualtaco III|village|-489983|-8031292
+Las Mercedes|village|-492482|-8037270
+Ocoto Bajo|village|-492766|-8041217
+San Martin de Malingas|village|-496707|-8031334
+Tupac Inca Yupanqui|village|-488492|-8042682
+San Isidro|hamlet|-483047|-8027575
+Capac Yupanqui|village|-483193|-8038517
+Tupac Amaru|neighbourhood|-483384|-8026847
+La Coruña|village|-488383|-8036786
+San Miguel Bajo|quarter|-484313|-8026200
+Hacienda Santa Clara|hamlet|-490920|-8038953
+La Greda|village|-497697|-8032646
+Santa Julia|village|-491237|-8042997
+San Martín de la Angostura|village|-494620|-8036320
+Ayar Uchu|hamlet|-488419|-8039752
+Buenos Aires|neighbourhood|-492571|-8033921
+Hacienda Pedregal|hamlet|-491374|-8037673
+El Frutal|village|-489297|-8035977
+San Eduardo|village|-489663|-8035334
+Hacienda San Ramón|neighbourhood|-492611|-8033793
+Froilan Alama|neighbourhood|-492688|-8033864
+8-4 Bajo|village|-484280|-8031519
+Coronel Andrés Rázuri|neighbourhood|-493031|-8034575
+Los Almendros|neighbourhood|-492391|-8034349
+Cp2 Colera|village|-489167|-8033815
+La Colca|village|-489045|-8033989
+Huenapira|hamlet|-495021|-8033068
+Sagrado Corazón de Jesús|neighbourhood|-492736|-8035056
+San Martín|neighbourhood|-491818|-8034339
+La Bendicion de Dios|neighbourhood|-492604|-8035185
+El Huerto|neighbourhood|-493403|-8034546
+Inca Roca|village|-482776|-8039679
+Nuevo Ocoto Bajo|village|-498610|-8041255
+Alfredo Vilca Aguilar|village|-486784|-8035320
+El Porvenir|village|-488604|-8030121
+San Pablo|village|-487352|-8031898
+Señor Cautivo|village|-493609|-8027504
+La Fortaleza Cp9|hamlet|-489435|-8030334
+Santa Rosa de Curvan|village|-494337|-8030153
+Peña Viva|village|-487554|-8034189
+Leoncio Prado|hamlet|-486998|-8022303
+El Refugio|hamlet|-493386|-8028716

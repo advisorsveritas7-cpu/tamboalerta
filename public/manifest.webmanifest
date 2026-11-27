@@ -1,0 +1,20 @@
+{
+  "id": "./",
+  "name": "TamboAlerta · Prevenir es proteger vidas",
+  "short_name": "TamboAlerta",
+  "description": "Mapa de calles inundables, avisos SENAMHI y reportes ciudadanos de Tambogrande, Piura.",
+  "lang": "es-PE",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0A192F",
+  "theme_color": "#0A192F",
+  "categories": ["weather", "utilities", "navigation"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

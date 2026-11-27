@@ -1,0 +1,191 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --navy: #0a192f;
+  --navy-2: #0d1b2a;
+  --cian: #14b8d4;
+  --cian-2: #00b4d8;
+  --texto: #ffffff;
+  --texto-sec: #cbd5e1;
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--navy);
+}
+
+@layer components {
+  .ta-input {
+    @apply w-full rounded-xl border border-white/10 bg-navy-700 px-3 py-2.5 text-sm text-white placeholder:text-texto-sec/60 focus:border-cian focus:outline-none;
+  }
+  .ta-opcion {
+    @apply rounded-xl border border-white/10 bg-navy-700 px-3 py-2.5 text-sm font-semibold text-white hover:border-cian;
+  }
+  .ta-legend {
+    @apply text-[11px] font-bold uppercase tracking-wider text-cian-300;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--cian);
+  outline-offset: 2px;
+}
+
+/* Slider de lluvia */
+.ta-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22c55e 0%, #facc15 35%, #ef4444 75%, #991b1b 100%);
+}
+.ta-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  border: 5px solid var(--cian);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.ta-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 5px solid var(--cian);
+}
+
+/* Leaflet en la identidad TamboAlerta */
+.leaflet-container {
+  background: var(--navy-2);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+.ta-seleccionando .leaflet-container,
+.ta-seleccionando.leaflet-container {
+  cursor: crosshair;
+}
+.leaflet-bar a {
+  background: var(--navy-2);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.leaflet-bar a:hover {
+  background: #1b2f4e;
+  color: var(--cian);
+}
+.leaflet-control-attribution {
+  background: rgba(10, 25, 47, 0.75) !important;
+  color: var(--texto-sec) !important;
+  font-size: 9px;
+}
+.leaflet-control-attribution a {
+  color: var(--cian) !important;
+}
+.leaflet-container .leaflet-popup-content-wrapper,
+.leaflet-container .leaflet-popup-tip {
+  background: var(--navy-2);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.leaflet-container .leaflet-popup-content {
+  margin: 0;
+  width: auto !important;
+}
+.leaflet-container .leaflet-popup-content-wrapper {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 14px;
+}
+.leaflet-container a.leaflet-popup-close-button {
+  color: #fff;
+  text-shadow: 0 0 4px #000;
+}
+.ta-popup img {
+  display: block;
+  width: 100%;
+  max-height: 170px;
+  object-fit: cover;
+}
+.ta-popup-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px 12px;
+  font-size: 13px;
+}
+.ta-popup-body p {
+  margin: 0;
+  color: var(--texto-sec);
+}
+.ta-popup-body small {
+  color: var(--texto-sec);
+  font-size: 11px;
+}
+.ta-chip {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0a192f;
+}
+.ta-wa {
+  margin-top: 6px;
+  display: block;
+  text-align: center;
+  padding: 8px;
+  border-radius: 10px;
+  background: #25d366;
+  color: #0a192f !important;
+  font-weight: 700;
+  text-decoration: none;
+}
+.ta-pin {
+  width: 30px;
+  height: 30px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--c);
+  border: 3px solid #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+  display: grid;
+  place-items: center;
+}
+.ta-pin span {
+  transform: rotate(45deg);
+  font: 800 12px/1 var(--font-display), system-ui;
+  color: #0a192f;
+}
+.ta-lugar {
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  font: 600 10px/1 var(--font-sans), system-ui;
+  color: var(--texto-sec);
+  text-shadow: 0 0 3px #0a192f, 0 0 3px #0a192f;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+.ta-lugar.grande {
+  font: 800 12px/1 var(--font-display), system-ui;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.ta-tip {
+  background: var(--navy-2);
+  color: #7dd3fc;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

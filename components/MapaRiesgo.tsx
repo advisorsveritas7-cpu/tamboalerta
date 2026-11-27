@@ -1,0 +1,175 @@
+'use client';
+import { useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import type { Calle, DatosTerritorio, Reporte } from '@/lib/tipos';
+import { COLOR_ESTADO, ETIQUETA_ESTADO, estadoCalle, umbralMm } from '@/lib/riesgo';
+import { TAMBOGRANDE } from '@/lib/config';
+import { NIVELES, enlaceWhatsApp, horaCorta } from '@/lib/formato';
+
+type Props = {
+  datos: DatosTerritorio | null;
+  lluvia: number;
+  reportes: Reporte[];
+  seleccionando: boolean;
+  puntoElegido: [number, number] | null;
+  onElegirPunto: (p: [number, number]) => void;
+  enfocar: { id: string; n: number } | null;
+};
+
+const ESTILO_AGUA: Record<string, L.PolylineOptions> = {
+  rio: { color: '#1E6FD9', weight: 7, opacity: 0.85 },
+  quebrada: { color: '#38BDF8', weight: 3, opacity: 0.9, dashArray: '6 5' },
+  canal: { color: '#0EA5E9', weight: 2.5, opacity: 0.8 },
+  dren: { color: '#67E8F9', weight: 2, opacity: 0.8, dashArray: '2 4' },
+};
+
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+function iconoReporte(r: Reporte) {
+  const n = NIVELES[r.nivel];
+  return L.divIcon({
+    className: '',
+    iconSize: [30, 38],
+    iconAnchor: [15, 36],
+    popupAnchor: [0, -32],
+    html: `<div class="ta-pin" style="--c:${n.color}"><span>${n.corto}</span></div>`,
+  });
+}
+
+function popupReporte(r: Reporte) {
+  const n = NIVELES[r.nivel];
+  return `<div class="ta-popup">
+    ${r.foto_url ? `<img src="${esc(r.foto_url)}" alt="Foto del reporte" loading="lazy"/>` : ''}
+    <div class="ta-popup-body">
+      <span class="ta-chip" style="background:${n.color}">${esc(n.etiqueta)}</span>
+      <strong>${esc(r.lugar)}</strong>
+      ${r.descripcion ? `<p>${esc(r.descripcion)}</p>` : ''}
+      <small>Reportado ${esc(horaCorta(r.creado))}</small>
+      <a class="ta-wa" href="${esc(enlaceWhatsApp(r))}" target="_blank" rel="noopener">Compartir por WhatsApp</a>
+    </div></div>`;
+}
+
+function popupCalle(c: Calle, lluvia: number) {
+  const e = estadoCalle(c, lluvia);
+  return `<div class="ta-popup"><div class="ta-popup-body">
+    <span class="ta-chip" style="background:${COLOR_ESTADO[e]};color:#0A192F">${ETIQUETA_ESTADO[e]} con ${lluvia} mm</span>
+    <strong>${esc(c.n || 'Calle sin nombre')}</strong>
+    <small>Se anega desde ≈ ${Math.round(umbralMm(c.s))} mm acumulados</small>
+    <small>Cota ${c.z} m · ${c.h < 50 ? `${c.h > 0 ? c.h : 0} m sobre el cauce` : ''} · a ${c.d} m de río/quebrada/dren${c.k <= -1 ? ' · zona baja' : ''}</small>
+  </div></div>`;
+}
+
+export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, puntoElegido, onElegirPunto, enfocar }: Props) {
+  const div = useRef<HTMLDivElement>(null);
+  const mapa = useRef<L.Map | null>(null);
+  const capaCalles = useRef<{ c: Calle; l: L.Polyline }[]>([]);
+  const capaReportes = useRef<L.LayerGroup | null>(null);
+  const marcadores = useRef<Map<string, L.Marker>>(new Map());
+  const marcaElegida = useRef<L.CircleMarker | null>(null);
+  const lluviaRef = useRef(lluvia);
+  const onElegirRef = useRef(onElegirPunto);
+  const seleccionandoRef = useRef(seleccionando);
+  lluviaRef.current = lluvia;
+  onElegirRef.current = onElegirPunto;
+  seleccionandoRef.current = seleccionando;
+
+  // Mapa base
+  useEffect(() => {
+    if (!div.current || mapa.current) return;
+    const m = L.map(div.current, { center: TAMBOGRANDE, zoom: 15, zoomControl: false, preferCanvas: true, attributionControl: true });
+    L.control.zoom({ position: 'topright' }).addTo(m);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
+      maxZoom: 19,
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/attributions">CARTO</a>',
+    }).addTo(m);
+    m.on('click', (e: L.LeafletMouseEvent) => {
+      if (seleccionandoRef.current) onElegirRef.current([e.latlng.lat, e.latlng.lng]);
+    });
+    capaReportes.current = L.layerGroup().addTo(m);
+    mapa.current = m;
+    return () => {
+      m.remove();
+      mapa.current = null;
+    };
+  }, []);
+
+  // Calles, cauces y caseríos
+  useEffect(() => {
+    const m = mapa.current;
+    if (!m || !datos) return;
+    const renderer = L.canvas({ padding: 0.3, tolerance: 6 });
+    const grupo = L.layerGroup().addTo(m);
+    for (const w of datos.agua) {
+      const l = L.polyline(w.c, { ...ESTILO_AGUA[w.t], renderer, interactive: !!w.n }).addTo(grupo);
+      if (w.n) l.bindTooltip(w.n, { sticky: true, className: 'ta-tip' });
+    }
+    capaCalles.current = datos.calles.map((c) => {
+      const principal = ['primary', 'secondary', 'trunk', 'tertiary'].includes(c.t);
+      const l = L.polyline(c.c, { renderer, weight: principal ? 5 : 3.5, opacity: 0.9, lineCap: 'round' }).addTo(grupo);
+      l.bindPopup(() => popupCalle(c, lluviaRef.current), { maxWidth: 260 });
+      return { c, l };
+    });
+    for (const p of datos.lugares) {
+      if (!['village', 'hamlet', 'town', 'suburb', 'neighbourhood', 'isolated_dwelling', 'locality'].includes(p.t)) continue;
+      const grande = p.t === 'town' || p.t === 'village';
+      L.marker(p.p, {
+        interactive: false,
+        icon: L.divIcon({ className: '', iconSize: [0, 0], html: `<div class="ta-lugar ${grande ? 'grande' : ''}">${esc(p.n)}</div>` }),
+      }).addTo(grupo);
+    }
+    pintar(lluviaRef.current);
+    return () => {
+      grupo.remove();
+      capaCalles.current = [];
+    };
+  }, [datos]);
+
+  function pintar(mm: number) {
+    for (const { c, l } of capaCalles.current) l.setStyle({ color: COLOR_ESTADO[estadoCalle(c, mm)] });
+  }
+  useEffect(() => pintar(lluvia), [lluvia]);
+
+  // Reportes ciudadanos
+  useEffect(() => {
+    const g = capaReportes.current;
+    if (!g) return;
+    const vistos = new Set<string>();
+    for (const r of reportes) {
+      vistos.add(r.id);
+      if (marcadores.current.has(r.id)) continue;
+      const mk = L.marker([r.lat, r.lon], { icon: iconoReporte(r), zIndexOffset: 1000 }).bindPopup(popupReporte(r), { maxWidth: 280, minWidth: 220 });
+      mk.addTo(g);
+      marcadores.current.set(r.id, mk);
+    }
+    for (const [id, mk] of marcadores.current) if (!vistos.has(id)) { mk.remove(); marcadores.current.delete(id); }
+  }, [reportes]);
+
+  useEffect(() => {
+    if (!enfocar) return;
+    const mk = marcadores.current.get(enfocar.id);
+    if (mk && mapa.current) {
+      mapa.current.setView(mk.getLatLng(), Math.max(mapa.current.getZoom(), 17));
+      mk.openPopup();
+    }
+  }, [enfocar, reportes]);
+
+  // Punto elegido para un nuevo reporte
+  useEffect(() => {
+    const m = mapa.current;
+    if (!m) return;
+    marcaElegida.current?.remove();
+    marcaElegida.current = null;
+    if (puntoElegido) {
+      marcaElegida.current = L.circleMarker(puntoElegido, { radius: 10, color: '#FFFFFF', weight: 3, fillColor: '#14B8D4', fillOpacity: 1 }).addTo(m);
+      if (!m.getBounds().contains(puntoElegido)) m.panTo(puntoElegido);
+    }
+  }, [puntoElegido]);
+
+  useEffect(() => {
+    div.current?.classList.toggle('ta-seleccionando', seleccionando);
+  }, [seleccionando]);
+
+  return <div ref={div} className="h-full w-full" role="application" aria-label="Mapa de riesgo de inundación de Tambogrande" />;
+}
