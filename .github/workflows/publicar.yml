@@ -30,9 +30,10 @@ jobs:
         env:
           BASE_PATH: /${{ github.event.repository.name }}
           SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
-          # Opcional: agrega estos dos secretos en Settings > Secrets and variables > Actions
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          # Proyecto Supabase de TamboAlerta. La clave "publishable" es pública por diseño
+          # (la protegen las reglas RLS de supabase/schema.sql). Los secretos del repo, si existen, la reemplazan.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://camoajkhrpbtivgfoqpu.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_rBvhORuJoEnQvJCz7vqRTg_7PiuERbv' }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out
