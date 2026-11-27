@@ -64,5 +64,6 @@ jobs:
           git add public/data
           git diff --cached --quiet && exit 0
           git commit -m "Datos de ciudades: $(ls nuevos | sed 's/.json//' | tr '\n' ' ')"
+          git pull --rebase origin main
           git push
           gh workflow run publicar.yml --ref main
