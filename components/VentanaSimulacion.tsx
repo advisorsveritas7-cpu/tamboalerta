@@ -1,6 +1,5 @@
 'use client';
 import { useState } from 'react';
-import { TAMBOGRANDE } from '@/lib/config';
 
 // Ventana con la simulación animada del pronóstico de lluvia (modelo ECMWF vía Windy).
 // El iframe solo se carga al abrir la ventana, para que la app siga liviana.
@@ -11,13 +10,13 @@ const VISTAS = [
   { id: 'wind', nombre: 'Viento' },
 ] as const;
 
-export function VentanaSimulacion({ onCerrar }: { onCerrar: () => void }) {
+export function VentanaSimulacion({ onCerrar, centro, nombre }: { onCerrar: () => void; centro: [number, number]; nombre: string }) {
   const [capa, setCapa] = useState<(typeof VISTAS)[number]['id']>('rain');
   const [cargando, setCargando] = useState(true);
-  const [lat, lon] = TAMBOGRANDE;
+  const [lat, lon] = centro;
   const url =
     'https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=%C2%B0C&metricWind=km%2Fh' +
-    `&zoom=7&overlay=${capa}&product=ecmwf&level=surface&lat=${(lat - 0.6).toFixed(3)}&lon=${lon.toFixed(3)}` +
+    `&zoom=7&overlay=${capa}&product=ecmwf&level=surface&lat=${(lat - 0.4).toFixed(3)}&lon=${lon.toFixed(3)}` +
     `&detailLat=${lat}&detailLon=${lon}&marker=true&message=true`;
 
   return (
@@ -26,7 +25,7 @@ export function VentanaSimulacion({ onCerrar }: { onCerrar: () => void }) {
         <div className="flex items-center gap-2 px-4 pb-2 pt-3">
           <div className="min-w-0">
             <h2 id="sim-anim-titulo" className="font-display text-base font-extrabold text-white">Simulación de lluvia · próximos días</h2>
-            <p className="text-[11px] text-texto-sec">Presiona ▶ abajo para ver cómo se mueven las lluvias sobre Piura.</p>
+            <p className="text-[11px] text-texto-sec">Presiona ▶ abajo para ver cómo se mueven las lluvias sobre Piura. El punto marca {nombre}.</p>
           </div>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" className="ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-full bg-navy-700 text-lg text-white">
             ×

@@ -7,7 +7,7 @@ const PASOS = [
   {
     icono: '🗺️',
     titulo: 'Mira tu calle en el mapa',
-    texto: 'Cada calle tiene un color: verde no hay peligro, amarillo cuidado con charcos y rojo se inunda. Toca una calle para ver su detalle.',
+    texto: 'Primero elige tu ciudad con el botón blanco 📍 arriba a la izquierda. Cada calle tiene un color: verde no hay peligro, amarillo cuidado con charcos y rojo se inunda. Toca una calle para ver su detalle.',
     muestra: true,
   },
   {

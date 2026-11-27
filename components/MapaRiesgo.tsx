@@ -5,7 +5,6 @@ import 'leaflet/dist/leaflet.css';
 import type { Calle, DatosTerritorio, Reporte } from '@/lib/tipos';
 import { COLOR_ESTADO, ETIQUETA_ESTADO, estadoCalle, umbralMm } from '@/lib/riesgo';
 import { nombreLluvia } from '@/lib/lluvia';
-import { TAMBOGRANDE } from '@/lib/config';
 import { NIVELES, enlaceWhatsApp, horaCorta } from '@/lib/formato';
 
 type Props = {
@@ -16,6 +15,7 @@ type Props = {
   puntoElegido: [number, number] | null;
   onElegirPunto: (p: [number, number]) => void;
   enfocar: { id: string; n: number } | null;
+  vista: { centro: [number, number]; zoom: number; nombre: string };
 };
 
 const ESTILO_AGUA: Record<string, L.PolylineOptions> = {
@@ -64,7 +64,8 @@ function popupCalle(c: Calle, lluvia: number) {
   </div></div>`;
 }
 
-export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, puntoElegido, onElegirPunto, enfocar }: Props) {
+export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, puntoElegido, onElegirPunto, enfocar, vista }: Props) {
+  const vistaInicial = useRef(vista);
   const div = useRef<HTMLDivElement>(null);
   const mapa = useRef<L.Map | null>(null);
   const capaCalles = useRef<{ c: Calle; l: L.Polyline }[]>([]);
@@ -81,7 +82,7 @@ export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, pun
   // Mapa base
   useEffect(() => {
     if (!div.current || mapa.current) return;
-    const m = L.map(div.current, { center: TAMBOGRANDE, zoom: 15, zoomControl: false, preferCanvas: true, attributionControl: true });
+    const m = L.map(div.current, { center: vistaInicial.current.centro, zoom: vistaInicial.current.zoom, zoomControl: false, preferCanvas: true, attributionControl: true });
     L.control.zoom({ position: 'topright' }).addTo(m);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       subdomains: 'abcd',
@@ -98,6 +99,14 @@ export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, pun
       mapa.current = null;
     };
   }, []);
+
+  // Al cambiar de ciudad, el mapa vuela hacia ella
+  useEffect(() => {
+    const m = mapa.current;
+    if (!m) return;
+    const c = m.getCenter();
+    if (Math.abs(c.lat - vista.centro[0]) + Math.abs(c.lng - vista.centro[1]) > 0.05) m.flyTo(vista.centro, vista.zoom, { duration: 1.2 });
+  }, [vista.centro, vista.zoom]);
 
   // Calles, cauces y caseríos
   useEffect(() => {
@@ -116,8 +125,8 @@ export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, pun
       return { c, l };
     });
     for (const p of datos.lugares) {
-      if (!['village', 'hamlet', 'town', 'suburb', 'neighbourhood', 'isolated_dwelling', 'locality'].includes(p.t)) continue;
-      const grande = p.t === 'town' || p.t === 'village';
+      if (!['city', 'village', 'hamlet', 'town', 'suburb', 'neighbourhood', 'isolated_dwelling', 'locality'].includes(p.t)) continue;
+      const grande = p.t === 'city' || p.t === 'town' || p.t === 'village';
       L.marker(p.p, {
         interactive: false,
         icon: L.divIcon({ className: '', iconSize: [0, 0], html: `<div class="ta-lugar ${grande ? 'grande' : ''}">${esc(p.n)}</div>` }),
@@ -175,5 +184,5 @@ export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, pun
     div.current?.classList.toggle('ta-seleccionando', seleccionando);
   }, [seleccionando]);
 
-  return <div ref={div} className="h-full w-full" role="application" aria-label="Mapa de riesgo de inundación de Tambogrande" />;
+  return <div ref={div} className="h-full w-full" role="application" aria-label={`Mapa de riesgo de inundación de ${vista.nombre}`} />;
 }

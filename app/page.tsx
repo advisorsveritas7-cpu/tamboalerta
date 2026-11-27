@@ -10,6 +10,8 @@ import { ListaReportes } from '@/components/ListaReportes';
 import { AccesoCoordinador } from '@/components/AccesoCoordinador';
 import { Bienvenida } from '@/components/Bienvenida';
 import { VentanaSimulacion } from '@/components/VentanaSimulacion';
+import { SelectorCiudad } from '@/components/SelectorCiudad';
+import { CIUDAD_INICIAL, ciudadPorId, nombreCorto } from '@/lib/ciudades';
 import type { Aviso, DatosTerritorio, Reporte } from '@/lib/tipos';
 import { obtenerPronostico, type Pronostico } from '@/lib/clima';
 import { escucharAvisos, escucharReportes, listarAvisos, listarReportes, publicarAviso, retirarAviso } from '@/lib/datos';
@@ -31,6 +33,10 @@ export default function Inicio() {
   const lluviaTocada = useRef(false);
   const [guia, setGuia] = useState(false);
   const [animacion, setAnimacion] = useState(false);
+  const [idCiudad, setIdCiudad] = useState<string | null>(null);
+  const [selector, setSelector] = useState(false);
+  const [sinDatos, setSinDatos] = useState(false);
+  const ciudad = ciudadPorId(idCiudad ?? CIUDAD_INICIAL);
   const [clima, setClima] = useState<Pronostico | null>(null);
   const [errorClima, setErrorClima] = useState(false);
   const [avisos, setAvisos] = useState<Aviso[]>([]);
@@ -50,19 +56,46 @@ export default function Inicio() {
     setTimeout(() => setAviso(null), 3500);
   }, []);
 
-  // Datos territoriales (estáticos, cacheados por el service worker)
+  // Ciudad elegida: ?c= en el enlace, o la última usada en este teléfono
   useEffect(() => {
-    fetch('./data/tambogrande.json')
-      .then((r) => r.json())
-      .then(setDatos)
-      .catch(() => notificar('No se pudo cargar el mapa de calles.'));
-  }, [notificar]);
+    let id: string | null = new URLSearchParams(location.search).get('c');
+    try { id = id || localStorage.getItem('ta:ciudad'); } catch {}
+    setIdCiudad(ciudadPorId(id).id);
+  }, []);
+  const cambiarCiudad = (id: string) => {
+    setSelector(false);
+    if (id === idCiudad) return;
+    lluviaTocada.current = false;
+    setClima(null);
+    setIdCiudad(id);
+    try { localStorage.setItem('ta:ciudad', id); } catch {}
+    const u = new URL(location.href);
+    u.searchParams.set('c', id);
+    history.replaceState(null, '', u);
+  };
 
-  // Pronóstico
+  // Datos territoriales de la ciudad (estáticos, cacheados por el service worker)
   useEffect(() => {
+    if (!idCiudad) return;
+    let vivo = true;
+    setDatos(null);
+    setSinDatos(false);
+    fetch(`./data/${idCiudad}.json`)
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then((d) => vivo && setDatos(d))
+      .catch(() => vivo && setSinDatos(true));
+    return () => { vivo = false; };
+  }, [idCiudad]);
+
+  // Pronóstico de la ciudad
+  useEffect(() => {
+    if (!idCiudad) return;
     let vivo = true;
     const cargar = () =>
-      obtenerPronostico()
+      obtenerPronostico(ciudadPorId(idCiudad).centro, idCiudad)
         .then((p) => {
           if (!vivo) return;
           setClima(p);
@@ -80,7 +113,7 @@ export default function Inicio() {
       vivo = false;
       clearInterval(t);
     };
-  }, []);
+  }, [idCiudad]);
 
   // Avisos y reportes + tiempo real
   const recargarAvisos = useCallback(() => listarAvisos().then(setAvisos).catch(() => {}), []);
@@ -140,6 +173,14 @@ export default function Inicio() {
   }, []);
 
   const calles = useMemo(() => datos?.calles ?? [], [datos]);
+  // En las ciudades nuevas solo se rotulan los lugares cercanos, para no saturar el mapa.
+  const datosMapa = useMemo(() => {
+    if (!datos || !(datos.meta as { ciudad?: string }).ciudad) return datos;
+    const [la, lo] = ciudad.centro;
+    const lim = ciudad.radioKm + 2;
+    const km = ([a, b]: [number, number]) => Math.hypot((a - la) * 111.3, (b - lo) * 111.3 * Math.cos((la * Math.PI) / 180));
+    return { ...datos, lugares: datos.lugares.filter((l) => km(l.p) <= lim) };
+  }, [datos, ciudad]);
 
   const simular = (mm: number, origen: string) => {
     lluviaTocada.current = true;
@@ -176,7 +217,7 @@ export default function Inicio() {
         puedePublicar={coordinador}
         onIngresar={() => setLoginAbierto(true)}
       />
-      <PanelClima onAnimacion={() => setAnimacion(true)} p={clima} error={errorClima} onSimular={(mm) => simular(mm, `Lluvia prevista para las próximas 48 h: ${clima?.total48 ?? mm} mm`)} />
+      <PanelClima ciudad={nombreCorto(ciudad)} onAnimacion={() => setAnimacion(true)} p={clima} error={errorClima} onSimular={(mm) => simular(mm, `Lluvia prevista para las próximas 48 h: ${clima?.total48 ?? mm} mm`)} />
     </>
   );
 
@@ -201,15 +242,16 @@ export default function Inicio() {
       <main className="relative flex min-h-0 flex-1 pb-[calc(3.75rem+env(safe-area-inset-bottom))] lg:pb-0">
         {/* Mapa (siempre montado) */}
         <div className={`relative min-w-0 flex-1 ${pestana === 'mapa' ? '' : 'hidden lg:block'}`}>
-          <MapaRiesgo
-            datos={datos}
+          {idCiudad && <MapaRiesgo
+            datos={datosMapa}
             lluvia={lluvia}
             reportes={reportes}
             seleccionando={seleccionando}
             puntoElegido={punto}
             onElegirPunto={elegirPunto}
             enfocar={enfocar}
-          />
+            vista={{ centro: ciudad.centro, zoom: ciudad.zoom, nombre: nombreCorto(ciudad) }}
+          />}
 
           {/* Simulador sobre el mapa */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[500] p-3 pb-[4.5rem] lg:left-auto lg:right-12 lg:top-0 lg:w-[410px] lg:pb-3">
@@ -224,32 +266,51 @@ export default function Inicio() {
             </div>
           </div>
 
-          {/* Leyenda */}
-          <div className="absolute left-3 top-3 z-[500] flex flex-col gap-1 rounded-xl border border-white/10 bg-navy-900/85 px-3 py-2 text-[10px] text-texto-sec backdrop-blur">
-            {(
-              [
-                ['bajo', 'Sin peligro'],
-                ['moderado', 'Cuidado'],
-                ['critico', 'Se inunda'],
-              ] as const
-            ).map(([k, t]) => (
-              <span key={k} className="flex items-center gap-1.5">
-                <i className="inline-block h-1 w-4 rounded" style={{ background: COLOR_ESTADO[k] }} />
-                {t}
+          {/* Ciudad, leyenda y simulación (columna superior izquierda) */}
+          <div className="absolute left-3 top-3 z-[500] flex max-w-[60%] flex-col items-start gap-2">
+            <button
+              type="button"
+              onClick={() => setSelector(true)}
+              className="flex max-w-full items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-extrabold text-navy-900 shadow-lg"
+              aria-label={`Ciudad: ${ciudad.nombre}. Cambiar ciudad`}
+            >
+              <span aria-hidden="true">📍</span>
+              <span className="truncate">{nombreCorto(ciudad)}</span>
+              <span className="text-[10px] text-navy-900/60" aria-hidden="true">▼</span>
+            </button>
+            <div className="flex flex-col gap-1 rounded-xl border border-white/10 bg-navy-900/85 px-3 py-2 text-[10px] text-texto-sec backdrop-blur">
+              {(
+                [
+                  ['bajo', 'Sin peligro'],
+                  ['moderado', 'Cuidado'],
+                  ['critico', 'Se inunda'],
+                ] as const
+              ).map(([k, t]) => (
+                <span key={k} className="flex items-center gap-1.5">
+                  <i className="inline-block h-1 w-4 rounded" style={{ background: COLOR_ESTADO[k] }} />
+                  {t}
+                </span>
+              ))}
+              <span className="flex items-center gap-1.5">
+                <i className="inline-block h-1 w-4 rounded bg-[#1E6FD9]" />
+                Río / quebrada
               </span>
-            ))}
-            <span className="flex items-center gap-1.5">
-              <i className="inline-block h-1 w-4 rounded bg-[#1E6FD9]" />
-              Río / quebrada
-            </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAnimacion(true)}
+              className="flex items-center gap-1.5 rounded-full bg-cian px-3 py-1.5 text-[11px] font-extrabold text-navy-900 shadow-lg"
+            >
+              ▶ Simulación de lluvia
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setAnimacion(true)}
-            className="absolute left-3 top-[7.6rem] z-[500] flex items-center gap-1.5 rounded-full bg-cian px-3 py-1.5 text-[11px] font-extrabold text-navy-900 shadow-lg"
-          >
-            ▶ Simulación de lluvia
-          </button>
+
+          {sinDatos && (
+            <div className="absolute inset-x-3 top-[34%] z-[500] mx-auto max-w-sm rounded-2xl border border-white/10 bg-navy-800/95 p-4 text-center text-sm text-texto-sec shadow-xl">
+              <p className="font-display font-bold text-white">Preparando el mapa de calles de {nombreCorto(ciudad)}</p>
+              <p className="mt-1">Mientras tanto puedes ver el pronóstico, los avisos y la simulación de lluvia, y reportar calles inundadas.</p>
+            </div>
+          )}
 
           {seleccionando && (
             <div className="absolute inset-x-3 top-3 z-[600] rounded-xl bg-cian px-4 py-3 text-center text-sm font-bold text-navy-900 shadow-xl">
@@ -333,7 +394,9 @@ export default function Inicio() {
         }}
       />
 
-      {animacion && <VentanaSimulacion onCerrar={() => setAnimacion(false)} />}
+      {animacion && <VentanaSimulacion centro={ciudad.centro} nombre={nombreCorto(ciudad)} onCerrar={() => setAnimacion(false)} />}
+
+      {selector && <SelectorCiudad actual={ciudad.id} onElegir={(c) => cambiarCiudad(c.id)} onCerrar={() => setSelector(false)} />}
 
       {guia && <Bienvenida onCerrar={cerrarGuia} />}
 

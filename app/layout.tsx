@@ -11,14 +11,14 @@ const SITIO = process.env.SITE_URL || 'http://localhost:3000';
 export const metadata: Metadata = {
   metadataBase: new URL(SITIO),
   title: 'TamboAlerta · Prevenir es proteger vidas',
-  description: 'Monitoreo de lluvias, mapa de calles inundables y reportes ciudadanos en tiempo real para Tambogrande, Piura.',
+  description: 'Monitoreo de lluvias, mapa de calles inundables y reportes ciudadanos en tiempo real para Tambogrande y las ciudades de la región Piura.',
   manifest: './manifest.webmanifest',
   applicationName: 'TamboAlerta',
   appleWebApp: { capable: true, title: 'TamboAlerta', statusBarStyle: 'black-translucent' },
   icons: { icon: './icons/icon.svg', apple: './icons/icon-192.png' },
   openGraph: {
     title: 'TamboAlerta · Prevenir es proteger vidas',
-    description: 'Mapa de calles inundables y reportes ciudadanos de Tambogrande, Piura.',
+    description: 'Mapa de calles inundables y reportes ciudadanos de la región Piura.',
     images: [`${SITIO}/icons/og.png`],
     url: SITIO,
     locale: 'es_PE',

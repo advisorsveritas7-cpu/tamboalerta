@@ -2,9 +2,9 @@
 import type { Pronostico } from '@/lib/clima';
 import { describirCodigo } from '@/lib/clima';
 
-type Props = { p: Pronostico | null; error: boolean; onSimular: (mm: number) => void; onAnimacion: () => void };
+type Props = { p: Pronostico | null; error: boolean; onSimular: (mm: number) => void; onAnimacion: () => void; ciudad: string };
 
-export function PanelClima({ p, error, onSimular, onAnimacion }: Props) {
+export function PanelClima({ p, error, onSimular, onAnimacion, ciudad }: Props) {
   const botonAnimacion = (
     <button
       type="button"
@@ -17,7 +17,7 @@ export function PanelClima({ p, error, onSimular, onAnimacion }: Props) {
   if (!p) {
     return (
       <section className="rounded-2xl border border-white/10 bg-navy-800 p-4">
-        <h2 className="font-display text-sm font-bold uppercase tracking-wider text-texto-sec">Pronóstico 48 h · Tambogrande</h2>
+        <h2 className="font-display text-sm font-bold uppercase tracking-wider text-texto-sec">Pronóstico 48 h · {ciudad}</h2>
         <p className="mt-3 text-sm text-texto-sec">{error
             ? typeof window !== 'undefined' && (window as unknown as { __TA_VISTA_PREVIA?: boolean }).__TA_VISTA_PREVIA
               ? 'La vista previa no puede consultar Open-Meteo. En la app publicada aquí aparece el pronóstico en vivo de 48 horas.'
@@ -34,7 +34,7 @@ export function PanelClima({ p, error, onSimular, onAnimacion }: Props) {
     <section className="rounded-2xl border border-white/10 bg-navy-800 p-4" aria-labelledby="clima-titulo">
       <div className="flex items-center justify-between">
         <h2 id="clima-titulo" className="font-display text-sm font-bold uppercase tracking-wider text-texto-sec">
-          Pronóstico 48 h · Tambogrande
+          Pronóstico 48 h · {ciudad}
         </h2>
         {p.offline && <span className="text-[10px] text-aviso-naranja">sin conexión · último dato</span>}
       </div>

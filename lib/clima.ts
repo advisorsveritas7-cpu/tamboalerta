@@ -1,4 +1,3 @@
-import { TAMBOGRANDE } from './config';
 
 export type Hora = { t: string; temp: number; prob: number; mm: number };
 export type Pronostico = {
@@ -11,10 +10,9 @@ export type Pronostico = {
   offline?: boolean;
 };
 
-const CLAVE = 'ta:clima';
 
-export async function obtenerPronostico(): Promise<Pronostico> {
-  const [lat, lon] = TAMBOGRANDE;
+export async function obtenerPronostico([lat, lon]: [number, number], idCiudad: string): Promise<Pronostico> {
+  const CLAVE = `ta:clima:${idCiudad}`;
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     '&current=temperature_2m,relative_humidity_2m,precipitation,weather_code' +
