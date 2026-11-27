@@ -61,3 +61,10 @@ create policy "ver fotos" on storage.objects for select using (bucket_id = 'foto
 
 -- Coordinadores: créalos en Authentication > Users > "Add user" (correo).
 -- Deja desactivado "Allow new users to sign up" para que nadie más pueda publicar avisos.
+
+-- Permisos de la API (necesarios si el proyecto no expone tablas nuevas automáticamente)
+grant usage on schema public to anon, authenticated;
+grant select, insert on public.reportes to anon, authenticated;
+grant delete on public.reportes to authenticated;
+grant select on public.avisos to anon, authenticated;
+grant insert, delete on public.avisos to authenticated;
