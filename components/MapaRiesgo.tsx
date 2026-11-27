@@ -8,6 +8,7 @@ import { nombreLluvia } from '@/lib/lluvia';
 import type { Hora } from '@/lib/clima';
 import { acumulado, enCuanto, fechaCorta, horaQueLlega, minutosConAguacero, textoMinutos } from '@/lib/tiempo';
 import { NIVELES, enlaceWhatsApp, horaCorta } from '@/lib/formato';
+import type { Ruta } from '@/lib/evacuacion';
 
 type Props = {
   datos: DatosTerritorio | null;
@@ -20,6 +21,8 @@ type Props = {
   vista: { centro: [number, number]; zoom: number; nombre: string };
   destacar: { n: string; sub: string; p: [number, number]; s?: number; k: number } | null;
   horas: Hora[] | null;
+  ruta: Ruta | null;
+  origenRuta: [number, number] | null;
 };
 
 const ESTILO_AGUA: Record<string, L.PolylineOptions> = {
@@ -99,7 +102,8 @@ function popupBuscado(d: NonNullable<Props['destacar']>, lluvia: number, reporte
   </div></div>`;
 }
 
-export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, puntoElegido, onElegirPunto, enfocar, vista, destacar, horas }: Props) {
+export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, puntoElegido, onElegirPunto, enfocar, vista, destacar, horas, ruta, origenRuta }: Props) {
+  const capaRuta = useRef<L.LayerGroup | null>(null);
   const horasRef = useRef(horas);
   horasRef.current = horas;
   const reportesRef = useRef(reportes);
@@ -229,6 +233,12 @@ export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, pun
       const principal = ['primary', 'secondary', 'trunk', 'tertiary'].includes(c.t);
       const l = L.polyline(c.c, { renderer, weight: principal ? 5 : 3.5, opacity: 0.9, lineCap: 'round' }).addTo(grupo);
       l.bindPopup(() => popupCalle(c, lluviaRef.current, horasRef.current), { maxWidth: 270 });
+      // Si se está eligiendo un punto (reporte o ruta), tocar una calle elige ese punto en vez de abrir su detalle.
+      l.on('click', (e: L.LeafletMouseEvent) => {
+        if (!seleccionandoRef.current) return;
+        setTimeout(() => l.closePopup());
+        onElegirRef.current([e.latlng.lat, e.latlng.lng]);
+      });
       return { c, l };
     });
     for (const p of datos.lugares) {
@@ -286,6 +296,39 @@ export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, pun
       if (!m.getBounds().contains(puntoElegido)) m.panTo(puntoElegido);
     }
   }, [puntoElegido]);
+
+  // Ruta de evacuación: línea morada con borde blanco, punto de salida y bandera en la zona alta.
+  const rutaPrevia = useRef<string>('');
+  useEffect(() => {
+    const m = mapa.current;
+    if (!m) return;
+    capaRuta.current?.remove();
+    capaRuta.current = null;
+    if (!origenRuta) { rutaPrevia.current = ''; return; }
+    if (!m.getPane('ruta')) m.createPane('ruta').style.zIndex = '450';
+    const renderer = L.svg({ pane: 'ruta' });
+    const g = L.layerGroup().addTo(m);
+    capaRuta.current = g;
+    L.circleMarker(origenRuta, { renderer, pane: 'ruta', radius: 9, color: '#FFFFFF', weight: 3, fillColor: '#A855F7', fillOpacity: 1, interactive: false }).addTo(g);
+    if (!ruta) {
+      m.panTo(origenRuta);
+      return;
+    }
+    L.polyline(ruta.coords, { renderer, pane: 'ruta', color: '#FFFFFF', weight: 11, opacity: 0.95, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(g);
+    L.polyline(ruta.coords, { renderer, pane: 'ruta', color: '#A855F7', weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round', interactive: false, className: 'ta-ruta' }).addTo(g);
+    L.marker(ruta.destino, {
+      zIndexOffset: 2500,
+      interactive: false,
+      icon: L.divIcon({ className: '', iconSize: [0, 0], html: `<div class="ta-meta">🏁 Zona alta · ${ruta.alturaDestino} m</div>` }),
+    }).addTo(g);
+    // Solo se reencuadra el mapa cuando cambia el camino (no en cada repintado).
+    const clave = `${ruta.coords.length}:${ruta.destino.join()}:${origenRuta.join()}`;
+    if (clave !== rutaPrevia.current) {
+      rutaPrevia.current = clave;
+      const abajo = window.innerWidth < 1024 ? Math.round(window.innerHeight * 0.5) : 40;
+      m.flyToBounds(L.latLngBounds(ruta.coords), { paddingTopLeft: [40, 60], paddingBottomRight: [90, abajo], maxZoom: 17, duration: 1 });
+    }
+  }, [ruta, origenRuta]);
 
   useEffect(() => {
     div.current?.classList.toggle('ta-seleccionando', seleccionando);

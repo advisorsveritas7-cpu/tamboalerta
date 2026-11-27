@@ -216,3 +216,15 @@ body {
 .ta-capa:hover { border-color: #14B8D4; }
 body.ta-popup-abierto .ta-col-izq { opacity: 0; pointer-events: none; }
 .ta-zoom-lejos .ta-lugar:not(.grande) { display: none; }
+
+/* Ruta de evacuación */
+.ta-ruta { stroke-dasharray: 14 10; animation: ta-avanza 1s linear infinite; }
+@keyframes ta-avanza { to { stroke-dashoffset: -24; } }
+.ta-meta {
+  transform: translate(-50%, -130%); white-space: nowrap;
+  background: #A855F7; color: #fff; font: 800 12px/1 system-ui, sans-serif;
+  padding: 6px 9px; border-radius: 999px; border: 2px solid #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+/* Con la ruta abierta solo queda visible el botón de ciudad, para dejar ver el camino */
+.ta-evac > :not(:first-child) { display: none; }

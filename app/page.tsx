@@ -13,7 +13,9 @@ import { VentanaSimulacion } from '@/components/VentanaSimulacion';
 import { Vista3D } from '@/components/Vista3D';
 import { SelectorCiudad } from '@/components/SelectorCiudad';
 import { Buscador, type Resultado } from '@/components/Buscador';
-import { CIUDAD_INICIAL, ciudadPorId, nombreCorto } from '@/lib/ciudades';
+import { PanelEvacuacion } from '@/components/PanelEvacuacion';
+import { rutaEvacuacion, type Modo } from '@/lib/evacuacion';
+import { CIUDADES, CIUDAD_INICIAL, ciudadPorId, nombreCorto } from '@/lib/ciudades';
 import type { Aviso, DatosTerritorio, Reporte } from '@/lib/tipos';
 import { obtenerPronostico, type Pronostico } from '@/lib/clima';
 import { escucharAvisos, escucharReportes, listarAvisos, listarReportes, publicarAviso, retirarAviso } from '@/lib/datos';
@@ -48,6 +50,12 @@ export default function Inicio() {
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [modal, setModal] = useState(false);
   const [seleccionando, setSeleccionando] = useState(false);
+  // Ruta de evacuación
+  const [evac, setEvac] = useState(false);
+  const [modoEvac, setModoEvac] = useState<Modo>('pie');
+  const [origenEvac, setOrigenEvac] = useState<[number, number] | null>(null);
+  const [eligiendoRuta, setEligiendoRuta] = useState(false);
+  const [gps, setGps] = useState(false);
   const [punto, setPunto] = useState<[number, number] | null>(null);
   const [enfocar, setEnfocar] = useState<{ id: string; n: number } | null>(null);
   const [pestana, setPestana] = useState<Pestana>('mapa');
@@ -195,9 +203,52 @@ export default function Inicio() {
   };
 
   const elegirPunto = (p: [number, number]) => {
+    if (eligiendoRuta) {
+      setOrigenEvac(p);
+      setEligiendoRuta(false);
+      setSeleccionando(false);
+      return;
+    }
     setPunto(p);
     setSeleccionando(false);
     setModal(true);
+  };
+
+  // La ruta se recalcula sola si cambia la lluvia, el modo, la ciudad o llegan reportes nuevos.
+  const resultadoEvac = useMemo(
+    () => (evac && origenEvac && calles.length ? rutaEvacuacion(calles, origenEvac, lluvia, modoEvac, reportes) : null),
+    [evac, origenEvac, calles, lluvia, modoEvac, reportes],
+  );
+  const abrirEvac = () => {
+    setEvac(true);
+    setPestana('mapa');
+    setDestacar(null);
+  };
+  const cerrarEvac = () => {
+    setEvac(false);
+    setOrigenEvac(null);
+    setEligiendoRuta(false);
+    setSeleccionando(false);
+  };
+  const usarGps = () => {
+    if (!('geolocation' in navigator)) return notificar('Tu celular no comparte la ubicación. Toca tu casa en el mapa.');
+    setGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGps(false);
+        const p: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        // Si estás en otra ciudad de la región, el mapa se cambia a esa ciudad.
+        const km = (c: (typeof CIUDADES)[number]) => Math.hypot((c.centro[0] - p[0]) * 111.3, (c.centro[1] - p[1]) * 111.3 * Math.cos((p[0] * Math.PI) / 180));
+        const cerca = [...CIUDADES].sort((a, b) => km(a) - km(b))[0];
+        if (cerca.id !== ciudad.id && km(cerca) <= cerca.radioKm + 3) cambiarCiudad(cerca.id);
+        setOrigenEvac(p);
+      },
+      () => {
+        setGps(false);
+        notificar('No se pudo leer tu ubicación. Toca tu casa en el mapa.');
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
+    );
   };
 
   const verReporte = (r: Reporte) => {
@@ -258,11 +309,27 @@ export default function Inicio() {
             vista={{ centro: ciudad.centro, zoom: ciudad.zoom, nombre: nombreCorto(ciudad) }}
             destacar={destacar}
             horas={clima ? clima.horas : null}
+            ruta={resultadoEvac?.ok ? resultadoEvac.ruta : null}
+            origenRuta={evac ? origenEvac : null}
           />}
 
           {/* Simulador sobre el mapa */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1001] p-3 pb-[4.5rem] lg:left-auto lg:right-12 lg:top-0 lg:w-[410px] lg:pb-3">
-            <div className="pointer-events-auto">
+            {evac && !eligiendoRuta ? (
+              <PanelEvacuacion
+                modo={modoEvac}
+                setModo={setModoEvac}
+                resultado={resultadoEvac}
+                tieneOrigen={!!origenEvac}
+                buscandoGps={gps}
+                sinDatos={sinDatos}
+                lluvia={lluvia}
+                onGps={usarGps}
+                onTocarMapa={() => { setEligiendoRuta(true); setSeleccionando(true); }}
+                onCerrar={cerrarEvac}
+              />
+            ) : (
+            <div className={`pointer-events-auto ${evac ? 'hidden' : ''}`}>
               <SimuladorLluvia
                 lluvia={lluvia}
                 setLluvia={(n, o) => { lluviaTocada.current = true; setLluvia(n); setOrigenLluvia(o ?? null); }}
@@ -272,10 +339,11 @@ export default function Inicio() {
                 horas={clima ? clima.horas : null}
               />
             </div>
+            )}
           </div>
 
           {/* Ciudad, leyenda y simulación (columna superior izquierda) */}
-          <div className="ta-col-izq absolute left-3 top-3 z-[500] flex max-w-[60%] flex-col items-start gap-2 transition-opacity">
+          <div className={`ta-col-izq absolute left-3 top-3 z-[500] flex max-w-[60%] flex-col items-start gap-2 transition-opacity ${evac ? 'ta-evac' : ''}`}>
             <button
               type="button"
               onClick={() => setSelector(true)}
@@ -306,6 +374,13 @@ export default function Inicio() {
             </div>
             <button
               type="button"
+              onClick={abrirEvac}
+              className="flex items-center gap-1.5 rounded-full bg-aviso-rojo px-3 py-1.5 text-[11px] font-extrabold text-white shadow-lg"
+            >
+              🏃 Ruta de evacuación
+            </button>
+            <button
+              type="button"
               onClick={() => setAnimacion(true)}
               className="flex items-center gap-1.5 rounded-full bg-cian px-3 py-1.5 text-[11px] font-extrabold text-navy-900 shadow-lg"
             >
@@ -329,8 +404,16 @@ export default function Inicio() {
 
           {seleccionando && (
             <div className="absolute inset-x-3 top-3 z-[600] rounded-xl bg-cian px-4 py-3 text-center text-sm font-bold text-navy-900 shadow-xl">
-              Toca la calle inundada en el mapa
-              <button type="button" onClick={() => { setSeleccionando(false); setModal(true); }} className="ml-3 underline">
+              {eligiendoRuta ? 'Toca en el mapa desde dónde sales (tu casa)' : 'Toca la calle inundada en el mapa'}
+              <button
+                type="button"
+                onClick={() => {
+                  setSeleccionando(false);
+                  if (eligiendoRuta) setEligiendoRuta(false);
+                  else setModal(true);
+                }}
+                className="ml-3 underline"
+              >
                 Cancelar
               </button>
             </div>
@@ -353,7 +436,7 @@ export default function Inicio() {
       </main>
 
       {/* Botón flotante */}
-      {!modal && !seleccionando && (
+      {!modal && !seleccionando && !evac && (
         <button
           type="button"
           onClick={() => setModal(true)}

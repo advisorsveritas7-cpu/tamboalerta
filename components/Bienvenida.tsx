@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Logo } from './Logo';
 
-// Guía rápida de 3 pasos. Se muestra la primera vez y desde el botón "?" del encabezado.
+// Guía rápida de 4 pasos. Se muestra la primera vez y desde el botón "?" del encabezado.
 const PASOS = [
   {
     icono: '🗺️',
@@ -14,6 +14,11 @@ const PASOS = [
     icono: '🌧️',
     titulo: 'Elige cuánta lluvia',
     texto: 'Abajo del mapa toca Leve, Moderada, Fuerte o Extrema y el mapa cambia al instante. "Pronóstico" usa la lluvia esperada de verdad para las próximas 48 horas.',
+  },
+  {
+    icono: '🏃',
+    titulo: '¿Tienes que salir? Ruta de evacuación',
+    texto: 'Toca el botón rojo "Ruta de evacuación", elige si vas a pie o en vehículo y desde dónde sales. Te marcamos en morado el camino más corto a una zona alta, evitando las calles que se inundan y las que reportaron los vecinos.',
   },
   {
     icono: '📸',
