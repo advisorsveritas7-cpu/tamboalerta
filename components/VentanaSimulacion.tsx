@@ -24,7 +24,7 @@ export function VentanaSimulacion({ onCerrar, centro, nombre }: { onCerrar: () =
       <div className="flex h-[92dvh] w-full max-w-4xl animate-[ta-sube_.25s_ease-out] flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-navy-800 shadow-2xl sm:h-[85vh] sm:rounded-3xl">
         <div className="flex items-center gap-2 px-4 pb-2 pt-3">
           <div className="min-w-0">
-            <h2 id="sim-anim-titulo" className="font-display text-base font-extrabold text-white">Simulación de lluvia · próximos días</h2>
+            <h2 id="sim-anim-titulo" className="font-display text-base font-extrabold text-white">Pronóstico de lluvia · próximos días</h2>
             <p className="text-[11px] text-texto-sec">Presiona ▶ abajo para ver cómo se mueven las lluvias sobre Piura. El punto marca {nombre}.</p>
           </div>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" className="ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-full bg-navy-700 text-lg text-white">
@@ -46,11 +46,11 @@ export function VentanaSimulacion({ onCerrar, centro, nombre }: { onCerrar: () =
           ))}
         </div>
         <div className="relative min-h-0 flex-1 bg-navy-900">
-          {cargando && <p className="absolute inset-0 grid place-items-center text-sm text-texto-sec">Cargando simulación…</p>}
+          {cargando && <p className="absolute inset-0 grid place-items-center text-sm text-texto-sec">Cargando pronóstico…</p>}
           <iframe
             key={capa}
             src={url}
-            title="Simulación animada del pronóstico de lluvia"
+            title="Pronóstico animado de lluvia"
             className="relative h-full w-full border-0"
             onLoad={() => setCargando(false)}
             allow="fullscreen"

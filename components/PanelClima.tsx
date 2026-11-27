@@ -11,7 +11,7 @@ export function PanelClima({ p, error, onSimular, onAnimacion, ciudad }: Props) 
       onClick={onAnimacion}
       className="mt-3 w-full rounded-xl bg-cian py-2.5 text-sm font-extrabold text-navy-900 hover:bg-cian-300"
     >
-      ▶ Ver simulación animada de lluvia
+      ▶ Ver pronóstico animado de lluvia
     </button>
   );
   if (!p) {

@@ -301,14 +301,14 @@ export default function Inicio() {
               onClick={() => setAnimacion(true)}
               className="flex items-center gap-1.5 rounded-full bg-cian px-3 py-1.5 text-[11px] font-extrabold text-navy-900 shadow-lg"
             >
-              ▶ Simulación de lluvia
+              ▶ Pronóstico de lluvia
             </button>
           </div>
 
           {sinDatos && (
             <div className="absolute inset-x-3 top-[34%] z-[500] mx-auto max-w-sm rounded-2xl border border-white/10 bg-navy-800/95 p-4 text-center text-sm text-texto-sec shadow-xl">
               <p className="font-display font-bold text-white">Preparando el mapa de calles de {nombreCorto(ciudad)}</p>
-              <p className="mt-1">Mientras tanto puedes ver el pronóstico, los avisos y la simulación de lluvia, y reportar calles inundadas.</p>
+              <p className="mt-1">Mientras tanto puedes ver el pronóstico, los avisos y el pronóstico animado, y reportar calles inundadas.</p>
             </div>
           )}
 
