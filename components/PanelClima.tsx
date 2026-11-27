@@ -64,10 +64,10 @@ export function PanelClima({ p, error, onSimular }: Props) {
       </figure>
       <button
         type="button"
-        onClick={() => onSimular(Math.round(p.total48 / 5) * 5)}
+        onClick={() => onSimular(Math.round(p.total48))}
         className="mt-3 w-full rounded-xl border border-cian/50 py-2 text-sm font-semibold text-cian hover:bg-cian/10"
       >
-        Simular el pronóstico de 48 h en el mapa
+        Ver este pronóstico en el mapa
       </button>
       <p className="mt-2 text-[10px] text-texto-sec/70">Fuente: Open-Meteo · actualizado {new Date(p.actualizado).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</p>
     </section>

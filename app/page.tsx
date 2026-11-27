@@ -1,6 +1,6 @@
 'use client';
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Encabezado } from '@/components/Encabezado';
 import { SimuladorLluvia } from '@/components/SimuladorLluvia';
 import { PanelClima } from '@/components/PanelClima';
@@ -8,6 +8,7 @@ import { PanelAvisos } from '@/components/PanelAvisos';
 import { ModalReporte } from '@/components/ModalReporte';
 import { ListaReportes } from '@/components/ListaReportes';
 import { AccesoCoordinador } from '@/components/AccesoCoordinador';
+import { Bienvenida } from '@/components/Bienvenida';
 import type { Aviso, DatosTerritorio, Reporte } from '@/lib/tipos';
 import { obtenerPronostico, type Pronostico } from '@/lib/clima';
 import { escucharAvisos, escucharReportes, listarAvisos, listarReportes, publicarAviso, retirarAviso } from '@/lib/datos';
@@ -24,8 +25,10 @@ type Pestana = 'mapa' | 'clima' | 'avisos' | 'reportes';
 
 export default function Inicio() {
   const [datos, setDatos] = useState<DatosTerritorio | null>(null);
-  const [lluvia, setLluvia] = useState(30);
-  const [origenLluvia, setOrigenLluvia] = useState<string | null>('Valor de partida. Usa el pronóstico o un aviso.');
+  const [lluvia, setLluvia] = useState(25);
+  const [origenLluvia, setOrigenLluvia] = useState<string | null>('Moderada: lluvia de varias horas');
+  const lluviaTocada = useRef(false);
+  const [guia, setGuia] = useState(false);
   const [clima, setClima] = useState<Pronostico | null>(null);
   const [errorClima, setErrorClima] = useState(false);
   const [avisos, setAvisos] = useState<Aviso[]>([]);
@@ -58,7 +61,16 @@ export default function Inicio() {
     let vivo = true;
     const cargar = () =>
       obtenerPronostico()
-        .then((p) => vivo && (setClima(p), setErrorClima(false)))
+        .then((p) => {
+          if (!vivo) return;
+          setClima(p);
+          setErrorClima(false);
+          // Al abrir, el mapa muestra la lluvia esperada de verdad (si el vecino aún no eligió otra).
+          if (!lluviaTocada.current) {
+            setLluvia(Math.min(150, Math.round(p.total48)));
+            setOrigenLluvia(`Lluvia prevista para las próximas 48 h: ${p.total48} mm`);
+          }
+        })
         .catch(() => vivo && setErrorClima(true));
     cargar();
     const t = setInterval(cargar, 30 * 60_000);
@@ -87,6 +99,17 @@ export default function Inicio() {
       setReportes((prev) => (prev.some((x) => x.id === r.id) ? prev : [r, ...prev]));
     });
   }, [notificar]);
+
+  // Guía de bienvenida la primera vez
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem('ta:guia')) setGuia(true);
+    } catch {}
+  }, []);
+  const cerrarGuia = () => {
+    setGuia(false);
+    try { localStorage.setItem('ta:guia', '1'); } catch {}
+  };
 
   // Conectividad
   useEffect(() => {
@@ -117,6 +140,7 @@ export default function Inicio() {
   const calles = useMemo(() => datos?.calles ?? [], [datos]);
 
   const simular = (mm: number, origen: string) => {
+    lluviaTocada.current = true;
     setLluvia(Math.max(0, Math.min(150, mm)));
     setOrigenLluvia(origen);
     setPestana('mapa');
@@ -150,13 +174,13 @@ export default function Inicio() {
         puedePublicar={coordinador}
         onIngresar={() => setLoginAbierto(true)}
       />
-      <PanelClima p={clima} error={errorClima} onSimular={(mm) => simular(mm, `Pronóstico Open-Meteo 48 h: ${clima?.total48 ?? mm} mm`)} />
+      <PanelClima p={clima} error={errorClima} onSimular={(mm) => simular(mm, `Lluvia prevista para las próximas 48 h: ${clima?.total48 ?? mm} mm`)} />
     </>
   );
 
   return (
     <div className="flex h-[100dvh] flex-col">
-      <Encabezado enLinea={enLinea} />
+      <Encabezado enLinea={enLinea} onAyuda={() => setGuia(true)} />
 
       {/* Banda de aviso vigente más alto */}
       {avisos[0] && (
@@ -186,9 +210,15 @@ export default function Inicio() {
           />
 
           {/* Simulador sobre el mapa */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[500] p-3 pb-[4.5rem] lg:left-auto lg:right-12 lg:top-0 lg:w-[360px] lg:pb-3">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[500] p-3 pb-[4.5rem] lg:left-auto lg:right-12 lg:top-0 lg:w-[410px] lg:pb-3">
             <div className="pointer-events-auto">
-              <SimuladorLluvia lluvia={lluvia} setLluvia={(n) => { setLluvia(n); setOrigenLluvia(null); }} calles={calles} origen={origenLluvia} />
+              <SimuladorLluvia
+                lluvia={lluvia}
+                setLluvia={(n, o) => { lluviaTocada.current = true; setLluvia(n); setOrigenLluvia(o ?? null); }}
+                calles={calles}
+                origen={origenLluvia}
+                pronostico48={clima ? clima.total48 : null}
+              />
             </div>
           </div>
 
@@ -196,9 +226,9 @@ export default function Inicio() {
           <div className="absolute left-3 top-3 z-[500] flex flex-col gap-1 rounded-xl border border-white/10 bg-navy-900/85 px-3 py-2 text-[10px] text-texto-sec backdrop-blur">
             {(
               [
-                ['bajo', 'Bajo'],
-                ['moderado', 'Moderado'],
-                ['critico', 'Crítico / inundable'],
+                ['bajo', 'Sin peligro'],
+                ['moderado', 'Cuidado'],
+                ['critico', 'Se inunda'],
               ] as const
             ).map(([k, t]) => (
               <span key={k} className="flex items-center gap-1.5">
@@ -293,6 +323,8 @@ export default function Inicio() {
           notificar('Reporte enviado. ¡Gracias por avisar!');
         }}
       />
+
+      {guia && <Bienvenida onCerrar={cerrarGuia} />}
 
       {loginAbierto && <AccesoCoordinador onCerrar={() => setLoginAbierto(false)} />}
 

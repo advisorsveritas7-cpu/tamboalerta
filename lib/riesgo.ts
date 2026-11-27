@@ -32,7 +32,7 @@ export const COLOR_ESTADO: Record<Estado, string> = {
 };
 
 export const ETIQUETA_ESTADO: Record<Estado, string> = {
-  bajo: 'Transitable',
-  moderado: 'Precaución',
-  critico: 'Inundable',
+  bajo: 'Sin peligro',
+  moderado: 'Cuidado',
+  critico: 'Se inunda',
 };

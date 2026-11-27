@@ -189,3 +189,8 @@ body {
     transition: none !important;
   }
 }
+
+/* Animaciones suaves de la guía y tarjetas */
+@keyframes ta-sube { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ta-aparece { from { transform: translateX(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

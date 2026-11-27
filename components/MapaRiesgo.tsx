@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { Calle, DatosTerritorio, Reporte } from '@/lib/tipos';
 import { COLOR_ESTADO, ETIQUETA_ESTADO, estadoCalle, umbralMm } from '@/lib/riesgo';
+import { nombreLluvia } from '@/lib/lluvia';
 import { TAMBOGRANDE } from '@/lib/config';
 import { NIVELES, enlaceWhatsApp, horaCorta } from '@/lib/formato';
 
@@ -52,11 +53,14 @@ function popupReporte(r: Reporte) {
 
 function popupCalle(c: Calle, lluvia: number) {
   const e = estadoCalle(c, lluvia);
+  const T = Math.round(umbralMm(c.s));
+  const frase = e === 'critico' ? 'El agua puede cubrir esta calle.' : e === 'moderado' ? 'Puede empozarse agua. Ten cuidado.' : 'No debería inundarse.';
   return `<div class="ta-popup"><div class="ta-popup-body">
-    <span class="ta-chip" style="background:${COLOR_ESTADO[e]};color:#0A192F">${ETIQUETA_ESTADO[e]} con ${lluvia} mm</span>
     <strong>${esc(c.n || 'Calle sin nombre')}</strong>
-    <small>Se anega desde ≈ ${Math.round(umbralMm(c.s))} mm acumulados</small>
-    <small>Cota ${c.z} m · ${c.h < 50 ? `${c.h > 0 ? c.h : 0} m sobre el cauce` : ''} · a ${c.d} m de río/quebrada/dren${c.k <= -1 ? ' · zona baja' : ''}</small>
+    <span class="ta-chip" style="background:${COLOR_ESTADO[e]};color:#0A192F">${ETIQUETA_ESTADO[e]}</span>
+    <p>${esc(nombreLluvia(lluvia))} (${lluvia} mm): ${frase}</p>
+    <small>Empieza a inundarse con ${esc(nombreLluvia(T).toLowerCase())} (desde ≈ ${T} mm).</small>
+    <small style="opacity:.7">Altura ${c.z} m · a ${c.d} m de río o quebrada${c.k <= -1 ? ' · zona baja' : ''}</small>
   </div></div>`;
 }
 
