@@ -1,17 +1,25 @@
 -- TamboAlerta · esquema de Supabase
--- Ejecutar en Supabase > SQL Editor. Crea tablas, permisos (RLS), bucket de fotos y tiempo real.
+-- Ejecutar en Supabase > SQL Editor. Crea tablas, permisos (RLS), bucket de fotos/videos y tiempo real.
+-- Se puede ejecutar varias veces sin error.
 
 -- 1. Reportes ciudadanos: SOLO estado de calles y transitabilidad.
 create table if not exists public.reportes (
   id          uuid primary key default gen_random_uuid(),
   creado      timestamptz not null default now(),
-  lat         double precision not null check (lat between -5.20 and -4.70),
-  lon         double precision not null check (lon between -80.60 and -80.00),
+  lat         double precision not null,
+  lon         double precision not null,
   lugar       text not null check (char_length(lugar) between 2 and 120),
   nivel       text not null check (nivel in ('tobillos', 'rodillas', 'cintura')),
   descripcion text check (char_length(descripcion) <= 140),
-  foto_url    text
+  foto_url    text,
+  video_url   text
 );
+-- Toda la región Piura (aprox.). Se reescriben por si la tabla ya existía con el límite antiguo de Tambogrande.
+alter table public.reportes add column if not exists video_url text;
+alter table public.reportes drop constraint if exists reportes_lat_check;
+alter table public.reportes drop constraint if exists reportes_lon_check;
+alter table public.reportes add constraint reportes_lat_check check (lat between -6.6 and -3.9);
+alter table public.reportes add constraint reportes_lon_check check (lon between -81.5 and -79.0);
 create index if not exists reportes_creado_idx on public.reportes (creado desc);
 
 alter table public.reportes enable row level security;
@@ -46,13 +54,20 @@ drop policy if exists "coordinadores retiran" on public.avisos;
 create policy "coordinadores retiran" on public.avisos for delete to authenticated using (true);
 
 -- 3. Tiempo real
-alter publication supabase_realtime add table public.reportes;
-alter publication supabase_realtime add table public.avisos;
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'reportes') then
+    alter publication supabase_realtime add table public.reportes;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'avisos') then
+    alter publication supabase_realtime add table public.avisos;
+  end if;
+end $$;
 
--- 4. Fotos (bucket público, solo JPEG de hasta 1 MB; la app las comprime a ~150 KB)
+-- 4. Fotos y videos cortos (bucket público; fotos JPEG comprimidas, videos de hasta 15 s y 10 MB)
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('fotos', 'fotos', true, 1048576, array['image/jpeg'])
-on conflict (id) do nothing;
+values ('fotos', 'fotos', true, 10485760, array['image/jpeg', 'video/mp4', 'video/webm', 'video/quicktime'])
+on conflict (id) do update set public = true, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists "subir fotos" on storage.objects;
 create policy "subir fotos" on storage.objects for insert to anon, authenticated with check (bucket_id = 'fotos');

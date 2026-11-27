@@ -5,6 +5,8 @@ import 'leaflet/dist/leaflet.css';
 import type { Calle, DatosTerritorio, Reporte } from '@/lib/tipos';
 import { COLOR_ESTADO, ETIQUETA_ESTADO, estadoCalle, umbralMm } from '@/lib/riesgo';
 import { nombreLluvia } from '@/lib/lluvia';
+import type { Hora } from '@/lib/clima';
+import { acumulado, enCuanto, fechaCorta, horaQueLlega, minutosConAguacero, textoMinutos } from '@/lib/tiempo';
 import { NIVELES, enlaceWhatsApp, horaCorta } from '@/lib/formato';
 
 type Props = {
@@ -17,6 +19,7 @@ type Props = {
   enfocar: { id: string; n: number } | null;
   vista: { centro: [number, number]; zoom: number; nombre: string };
   destacar: { n: string; sub: string; p: [number, number]; s?: number; k: number } | null;
+  horas: Hora[] | null;
 };
 
 const ESTILO_AGUA: Record<string, L.PolylineOptions> = {
@@ -52,27 +55,40 @@ function popupReporte(r: Reporte) {
     </div></div>`;
 }
 
-function popupCalle(c: Calle, lluvia: number) {
+// Cuándo llegaría el agua: según el pronóstico hora por hora y si cae un aguacero fuerte.
+function bloqueTiempo(T: number, horas: Hora[] | null) {
+  let pron = '';
+  if (horas?.length) {
+    const i = horaQueLlega(T, acumulado(horas));
+    pron = i == null
+      ? '<p>⏱️ Con el pronóstico de 48 h <b>no llegaría a inundarse</b>.</p>'
+      : `<p>⏱️ Con el pronóstico se inundaría hacia el <b>${esc(fechaCorta(horas[i].t))}</b> (${esc(enCuanto(horas[i].t))}).</p>`;
+  }
+  return `${pron}<small>Si empieza un aguacero fuerte (20 mm por hora), habría unos <b>${esc(textoMinutos(minutosConAguacero(T)))}</b> para salir antes de que se inunde.</small>`;
+}
+
+function popupCalle(c: Calle, lluvia: number, horas: Hora[] | null) {
   const e = estadoCalle(c, lluvia);
   const T = Math.round(umbralMm(c.s));
   const frase = e === 'critico' ? 'El agua puede cubrir esta calle.' : e === 'moderado' ? 'Puede empozarse agua. Ten cuidado.' : 'No debería inundarse.';
-  return `<div class="ta-popup"><div class="ta-popup-body">
+  return `<div class="ta-popup" style="width:240px"><div class="ta-popup-body">
     <strong>${esc(c.n || 'Calle sin nombre')}</strong>
     <span class="ta-chip" style="background:${COLOR_ESTADO[e]};color:#0A192F">${ETIQUETA_ESTADO[e]}</span>
     <p>${esc(nombreLluvia(lluvia))} (${lluvia} mm): ${frase}</p>
     <small>Empieza a inundarse con ${esc(nombreLluvia(T).toLowerCase())} (desde ≈ ${T} mm).</small>
+    ${bloqueTiempo(T, horas)}
     <small style="opacity:.7">Altura ${c.z} m · a ${c.d} m de río o quebrada${c.k <= -1 ? ' · zona baja' : ''}</small>
   </div></div>`;
 }
 
-function popupBuscado(d: NonNullable<Props['destacar']>, lluvia: number, reportes: Reporte[]) {
+function popupBuscado(d: NonNullable<Props['destacar']>, lluvia: number, reportes: Reporte[], horas: Hora[] | null) {
   const cerca = reportes.filter((r) => Math.hypot((r.lat - d.p[0]) * 111320, (r.lon - d.p[1]) * 111320 * Math.cos((d.p[0] * Math.PI) / 180)) <= 400);
   let riesgo = '';
   if (d.s != null) {
     const e = estadoCalle({ s: d.s } as Calle, lluvia);
     const T = Math.round(umbralMm(d.s));
     riesgo = `<span class="ta-chip" style="background:${COLOR_ESTADO[e]};color:#0A192F">${ETIQUETA_ESTADO[e]} con ${esc(nombreLluvia(lluvia).toLowerCase())}</span>
-      <small>En su parte más baja empieza a inundarse desde ≈ ${T} mm (${esc(nombreLluvia(T).toLowerCase())}).</small>`;
+      <small>En su parte más baja empieza a inundarse desde ≈ ${T} mm (${esc(nombreLluvia(T).toLowerCase())}).</small>${bloqueTiempo(T, horas)}`;
   }
   const rep = cerca.length
     ? `<p><b>🚨 ${cerca.length} ${cerca.length === 1 ? 'reporte' : 'reportes'} de vecinos a menos de 400 m.</b> El último: ${esc(NIVELES[cerca[0].nivel].etiqueta)} en ${esc(cerca[0].lugar)}, ${esc(horaCorta(cerca[0].creado))}.</p>`
@@ -83,7 +99,9 @@ function popupBuscado(d: NonNullable<Props['destacar']>, lluvia: number, reporte
   </div></div>`;
 }
 
-export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, puntoElegido, onElegirPunto, enfocar, vista, destacar }: Props) {
+export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, puntoElegido, onElegirPunto, enfocar, vista, destacar, horas }: Props) {
+  const horasRef = useRef(horas);
+  horasRef.current = horas;
   const reportesRef = useRef(reportes);
   reportesRef.current = reportes;
   const marcaBuscada = useRef<L.Marker | null>(null);
@@ -148,6 +166,10 @@ export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, pun
     });
     capaReportes.current = L.layerGroup().addTo(m);
     // Mientras hay un globo de información abierto se ocultan los botones de la izquierda para que no lo tapen.
+    // Con el mapa alejado solo se rotulan pueblos y distritos, no cada barrio.
+    const rotulos = () => m.getContainer().classList.toggle('ta-zoom-lejos', m.getZoom() < 15);
+    m.on('zoomend', rotulos);
+    rotulos();
     m.on('popupopen', () => document.body.classList.add('ta-popup-abierto'));
     m.on('popupclose', () => document.body.classList.remove('ta-popup-abierto'));
     mapa.current = m;
@@ -186,7 +208,7 @@ export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, pun
           }
         if (mejor < 0.004 ** 2) d = { ...d, s };
       }
-      return popupBuscado(d, lluviaRef.current, reportesRef.current);
+      return popupBuscado(d, lluviaRef.current, reportesRef.current, horasRef.current);
     }, { maxWidth: 280, minWidth: 240 });
     marcaBuscada.current = mk;
     m.flyTo(destacar.p, 17, { duration: 1.4 });
@@ -206,7 +228,7 @@ export default function MapaRiesgo({ datos, lluvia, reportes, seleccionando, pun
     capaCalles.current = datos.calles.map((c) => {
       const principal = ['primary', 'secondary', 'trunk', 'tertiary'].includes(c.t);
       const l = L.polyline(c.c, { renderer, weight: principal ? 5 : 3.5, opacity: 0.9, lineCap: 'round' }).addTo(grupo);
-      l.bindPopup(() => popupCalle(c, lluviaRef.current), { maxWidth: 260 });
+      l.bindPopup(() => popupCalle(c, lluviaRef.current, horasRef.current), { maxWidth: 270 });
       return { c, l };
     });
     for (const p of datos.lugares) {

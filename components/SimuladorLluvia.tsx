@@ -3,6 +3,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Calle } from '@/lib/tipos';
 import { estadoCalle, COLOR_ESTADO } from '@/lib/riesgo';
 import { NIVELES_LLUVIA, nombreLluvia } from '@/lib/lluvia';
+import { umbralMm } from '@/lib/riesgo';
+import type { Hora } from '@/lib/clima';
+import { acumulado, enCuanto, fechaCorta, horaQueLlega } from '@/lib/tiempo';
 
 type Props = {
   lluvia: number;
@@ -10,11 +13,34 @@ type Props = {
   calles: Calle[];
   origen: string | null; // de dónde viene el valor (pronóstico, aviso, manual)
   pronostico48: number | null; // lluvia prevista en 48 h (Open-Meteo)
+  horas: Hora[] | null; // pronóstico hora por hora
 };
 
 const MAX_ANIM = 120;
 
-export function SimuladorLluvia({ lluvia, setLluvia, calles, origen, pronostico48 }: Props) {
+export function SimuladorLluvia({ lluvia, setLluvia, calles, origen, pronostico48, horas }: Props) {
+  // Pronóstico hora por hora: lluvia acumulada y la hora en que se inundaría cada calle.
+  const acum = useMemo(() => (horas ? acumulado(horas) : []), [horas]);
+  const hayLluviaPronosticada = acum.length > 0 && acum[acum.length - 1] > 0;
+  const [horaSel, setHoraSel] = useState<number | null>(null);
+  const textoHora = (i: number) => horas ? `${fechaCorta(horas[i].t)} (${enCuanto(horas[i].t)}) · ${acum[i]} mm acumulados` : '';
+  const irAHora = (i: number) => {
+    setHoraSel(i);
+    setLluvia(Math.round(acum[i]), `Pronóstico para el ${textoHora(i)}`);
+  };
+  useEffect(() => {
+    if (!origen?.startsWith('Pronóstico para')) setHoraSel(null);
+  }, [origen]);
+  const primeras = useMemo(() => {
+    if (!horas || !hayLluviaPronosticada) return [];
+    const porNombre = new Map<string, number>();
+    for (const c of calles) {
+      if (!c.n) continue;
+      const i = horaQueLlega(umbralMm(c.s), acum);
+      if (i != null) porNombre.set(c.n, Math.min(porNombre.get(c.n) ?? 99, i));
+    }
+    return [...porNombre.entries()].sort((a, b) => a[1] - b[1]).slice(0, 10);
+  }, [calles, acum, horas, hayLluviaPronosticada]);
   const resumen = useMemo(() => {
     const r = { bajo: 0, moderado: 0, critico: 0 };
     const nombres = new Map<string, number>();
@@ -41,7 +67,24 @@ export function SimuladorLluvia({ lluvia, setLluvia, calles, origen, pronostico4
     if (volver) setLluvia(previo.current.mm, previo.current.origen);
   };
   const animar = () => {
-    if (animando) return detener();
+    if (animando) return detener(false);
+    if (hayLluviaPronosticada) {
+      // Recorre el pronóstico hora por hora y se queda en la última hora.
+      setAnimando(true);
+      let i = 0;
+      irAHora(0);
+      timer.current = setInterval(() => {
+        i++;
+        if (i >= acum.length) {
+          if (timer.current) clearInterval(timer.current);
+          timer.current = null;
+          setAnimando(false);
+          return;
+        }
+        irAHora(i);
+      }, 220);
+      return;
+    }
     previo.current = { mm: lluvia, origen };
     setAnimando(true);
     let mm = 0;
@@ -65,7 +108,7 @@ export function SimuladorLluvia({ lluvia, setLluvia, calles, origen, pronostico4
       : []),
     ...NIVELES_LLUVIA.map((n) => ({ ...n, origen: `${n.nombre}: ${n.ejemplo.toLowerCase()}` })),
   ];
-  const activa = animando ? null : opciones.find((o) => o.mm === lluvia && (o.id !== 'pron' || origen?.startsWith('Lluvia prevista')))?.id;
+  const activa = animando || horaSel != null ? null : opciones.find((o) => o.mm === lluvia && (o.id !== 'pron' || origen?.startsWith('Lluvia prevista')))?.id;
 
   const estadoGeneral = resumen.critico > 0 ? 'critico' : resumen.moderado > 0 ? 'moderado' : 'bajo';
   const titular =
@@ -120,7 +163,7 @@ export function SimuladorLluvia({ lluvia, setLluvia, calles, origen, pronostico4
             type="button"
             role="radio"
             aria-checked={activa === o.id}
-            onClick={() => { if (animando) detener(false); setLluvia(o.mm, o.origen); }}
+            onClick={() => { if (animando) detener(false); setHoraSel(null); setLluvia(o.mm, o.origen); }}
             className={`flex min-w-0 flex-col items-center rounded-xl border px-0.5 py-1.5 text-[10.5px] font-semibold leading-tight transition ${
               activa === o.id ? 'border-cian bg-cian text-navy-900' : 'border-white/10 bg-navy-700 text-white hover:border-cian/60'
             }`}
@@ -140,7 +183,7 @@ export function SimuladorLluvia({ lluvia, setLluvia, calles, origen, pronostico4
       {resumen.critico > 0 && resumen.moderado > 0 && (
         <p className="ml-5 text-[11px] text-texto-sec">y {resumen.moderado} con riesgo de charcos (amarillo)</p>
       )}
-      {origen && !animando && <p className="ml-5 text-[11px] text-cian-300">{origen}</p>}
+      {origen && (!animando || horaSel != null) && <p className="ml-5 text-[11px] text-cian-300">{origen}</p>}
 
       <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-navy-600" aria-hidden="true">
         <div className="transition-all duration-300" style={{ width: `${(resumen.bajo / total) * 100}%`, background: COLOR_ESTADO.bajo }} />
@@ -148,13 +191,36 @@ export function SimuladorLluvia({ lluvia, setLluvia, calles, origen, pronostico4
         <div className="transition-all duration-300" style={{ width: `${(resumen.critico / total) * 100}%`, background: COLOR_ESTADO.critico }} />
       </div>
 
+      {horaSel != null && horas && (
+        <div className="mt-2 rounded-xl bg-navy-700/70 px-2.5 py-2">
+          <label htmlFor="hora" className="flex items-center justify-between text-[11px] text-texto-sec">
+            <span>⏱️ Mover la hora del pronóstico</span>
+            <span className="font-semibold text-white">{fechaCorta(horas[horaSel].t)}</span>
+          </label>
+          <input
+            id="hora"
+            type="range"
+            min={0}
+            max={acum.length - 1}
+            value={horaSel}
+            onChange={(e) => { if (animando) detener(false); irAHora(Number(e.target.value)); }}
+            className="ta-slider mt-1.5 w-full"
+          />
+          <div className="mt-0.5 flex justify-between text-[10px] text-texto-sec">
+            <span>Ahora</span>
+            <span>+24 h</span>
+            <span>+48 h</span>
+          </div>
+        </div>
+      )}
+
       <div className="mt-2 flex gap-2">
         <button
           type="button"
           onClick={animar}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-cian/50 py-1.5 text-xs font-bold text-cian hover:bg-cian/10"
         >
-          {animando ? '■ Detener' : '▶ Ver cómo sube el agua'}
+          {animando ? '■ Detener' : hayLluviaPronosticada ? '▶ Ver hora por hora (48 h)' : '▶ Ver cómo sube el agua'}
         </button>
         <button
           type="button"
@@ -167,7 +233,7 @@ export function SimuladorLluvia({ lluvia, setLluvia, calles, origen, pronostico4
       </div>
 
       {detalle && (
-        <div className="mt-3 border-t border-white/10 pt-3">
+        <div className="mt-3 max-h-[28dvh] overflow-y-auto border-t border-white/10 pt-3 lg:max-h-[55vh]">
           <label htmlFor="lluvia" className="text-[11px] text-texto-sec">Ajuste fino (milímetros de lluvia acumulada)</label>
           <input
             id="lluvia"
@@ -179,7 +245,24 @@ export function SimuladorLluvia({ lluvia, setLluvia, calles, origen, pronostico4
             onChange={(e) => { if (animando) detener(false); setLluvia(Number(e.target.value), null); }}
             className="ta-slider mt-2 w-full"
           />
-          {resumen.top.length > 0 && (
+          {horas && hayLluviaPronosticada && (
+            <div className="mt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-aviso-naranja">⏱️ Con el pronóstico, primeras en inundarse</p>
+              {primeras.length ? (
+                <ul className="mt-1 flex flex-col gap-1">
+                  {primeras.map(([n, i]) => (
+                    <li key={n} className="flex items-center justify-between gap-2 rounded-md bg-navy-700 px-2 py-1 text-[11px]">
+                      <button type="button" className="truncate text-left text-white" onClick={() => irAHora(i)}>{n}</button>
+                      <span className="shrink-0 font-semibold text-aviso-naranja">{fechaCorta(horas[i].t)} · {enCuanto(horas[i].t)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 text-[11px] text-texto-sec">Con la lluvia pronosticada para 48 h ninguna calle llega a inundarse.</p>
+              )}
+            </div>
+          )}
+          {resumen.top.length > 0 && !(horas && hayLluviaPronosticada) && (
             <div className="mt-3">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-aviso-rojo">Las que se inundan primero</p>
               <ul className="mt-1 flex flex-wrap gap-1.5">
@@ -193,7 +276,7 @@ export function SimuladorLluvia({ lluvia, setLluvia, calles, origen, pronostico4
           )}
           <p className="mt-3 text-[10px] leading-snug text-texto-sec/80">
             Cálculo aproximado según la altura del terreno y la cercanía a ríos y quebradas. Es una guía para prevenir y no reemplaza a Defensa
-            Civil. Toca una calle del mapa para ver su detalle.
+            Civil. Las horas son estimadas: el agua puede llegar antes si se tapan los drenes o crece el río. Toca una calle del mapa para ver su detalle.
           </p>
         </div>
       )}

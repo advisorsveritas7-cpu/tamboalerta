@@ -215,3 +215,4 @@ body {
 .ta-capa span { font-size: 9px; font-weight: 700; letter-spacing: 0.02em; }
 .ta-capa:hover { border-color: #14B8D4; }
 body.ta-popup-abierto .ta-col-izq { opacity: 0; pointer-events: none; }
+.ta-zoom-lejos .ta-lugar:not(.grande) { display: none; }

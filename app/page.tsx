@@ -255,10 +255,11 @@ export default function Inicio() {
             enfocar={enfocar}
             vista={{ centro: ciudad.centro, zoom: ciudad.zoom, nombre: nombreCorto(ciudad) }}
             destacar={destacar}
+            horas={clima ? clima.horas : null}
           />}
 
           {/* Simulador sobre el mapa */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[500] p-3 pb-[4.5rem] lg:left-auto lg:right-12 lg:top-0 lg:w-[410px] lg:pb-3">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1001] p-3 pb-[4.5rem] lg:left-auto lg:right-12 lg:top-0 lg:w-[410px] lg:pb-3">
             <div className="pointer-events-auto">
               <SimuladorLluvia
                 lluvia={lluvia}
@@ -266,6 +267,7 @@ export default function Inicio() {
                 calles={calles}
                 origen={origenLluvia}
                 pronostico48={clima ? clima.total48 : null}
+                horas={clima ? clima.horas : null}
               />
             </div>
           </div>
