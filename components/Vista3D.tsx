@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { DatosTerritorio } from '@/lib/tipos';
 import { COLOR_ESTADO, estadoCalle } from '@/lib/riesgo';
-import { nombreLluvia } from '@/lib/lluvia';
 
 // Vista 3D: relieve real (exagerado) con foto satelital y las calles coloreadas según la lluvia elegida.
 // MapLibre se descarga solo al abrir esta ventana, para que la app siga liviana.
@@ -132,7 +131,7 @@ export function Vista3D({ datos, lluvia, centro, nombre, onCerrar }: Props) {
         <div className="min-w-0">
           <h2 id="v3d-titulo" className="font-display text-base font-extrabold text-white">Vista 3D · {nombre}</h2>
           <p className="text-[11px] text-texto-sec">
-            {nombreLluvia(lluvia)} ({lluvia} mm). Arrastra con dos dedos para inclinar y girar.
+            Con el pronóstico ({lluvia} mm). Arrastra con dos dedos para inclinar y girar.
           </p>
         </div>
         <button type="button" onClick={onCerrar} aria-label="Cerrar" className="ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-full bg-navy-700 text-lg text-white">

@@ -6,7 +6,7 @@ import type { Calle, DatosTerritorio, Reporte } from '@/lib/tipos';
 import { COLOR_ESTADO, ETIQUETA_ESTADO, estadoCalle, umbralMm } from '@/lib/riesgo';
 import { nombreLluvia } from '@/lib/lluvia';
 import type { Hora } from '@/lib/clima';
-import { acumulado, enCuanto, fechaCorta, horaQueLlega, minutosConAguacero, textoMinutos } from '@/lib/tiempo';
+import { acumulado, enCuanto, fechaCorta, horaQueLlega } from '@/lib/tiempo';
 import { NIVELES, enlaceWhatsApp, horaCorta } from '@/lib/formato';
 import type { Ruta } from '@/lib/evacuacion';
 
@@ -58,16 +58,15 @@ function popupReporte(r: Reporte) {
     </div></div>`;
 }
 
-// Cuándo llegaría el agua: según el pronóstico hora por hora y si cae un aguacero fuerte.
+// Cuánto tiempo queda para salir, según el pronóstico hora por hora.
 function bloqueTiempo(T: number, horas: Hora[] | null) {
-  let pron = '';
-  if (horas?.length) {
-    const i = horaQueLlega(T, acumulado(horas));
-    pron = i == null
-      ? '<p>⏱️ Con el pronóstico de 48 h <b>no llegaría a inundarse</b>.</p>'
-      : `<p>⏱️ Con el pronóstico se inundaría hacia el <b>${esc(fechaCorta(horas[i].t))}</b> (${esc(enCuanto(horas[i].t))}).</p>`;
-  }
-  return `${pron}<small>Si empieza un aguacero fuerte (20 mm por hora), habría unos <b>${esc(textoMinutos(minutosConAguacero(T)))}</b> para salir antes de que se inunde.</small>`;
+  if (!horas?.length) return '';
+  const i = horaQueLlega(T, acumulado(horas));
+  if (i == null) return '<p>⏱️ Con el pronóstico de las próximas 48 h <b>no llegaría a inundarse</b>.</p>';
+  const falta = enCuanto(horas[i].t);
+  return falta === 'ya'
+    ? '<p>⏱️ Según el pronóstico <b>ya puede estar inundándose</b>. Si estás ahí, sal a una zona alta.</p>'
+    : `<p>⏱️ Según el pronóstico se inundaría el <b>${esc(fechaCorta(horas[i].t))}</b>: te quedan unas <b>${esc(falta.replace('en ', ''))}</b> para salir.</p>`;
 }
 
 function popupCalle(c: Calle, lluvia: number, horas: Hora[] | null) {
@@ -77,7 +76,7 @@ function popupCalle(c: Calle, lluvia: number, horas: Hora[] | null) {
   return `<div class="ta-popup" style="width:240px"><div class="ta-popup-body">
     <strong>${esc(c.n || 'Calle sin nombre')}</strong>
     <span class="ta-chip" style="background:${COLOR_ESTADO[e]};color:#0A192F">${ETIQUETA_ESTADO[e]}</span>
-    <p>${esc(nombreLluvia(lluvia))} (${lluvia} mm): ${frase}</p>
+    <p>Con el pronóstico (${lluvia} mm): ${frase}</p>
     <small>Empieza a inundarse con ${esc(nombreLluvia(T).toLowerCase())} (desde ≈ ${T} mm).</small>
     ${bloqueTiempo(T, horas)}
     <small style="opacity:.7">Altura ${c.z} m · a ${c.d} m de río o quebrada${c.k <= -1 ? ' · zona baja' : ''}</small>
@@ -90,7 +89,7 @@ function popupBuscado(d: NonNullable<Props['destacar']>, lluvia: number, reporte
   if (d.s != null) {
     const e = estadoCalle({ s: d.s } as Calle, lluvia);
     const T = Math.round(umbralMm(d.s));
-    riesgo = `<span class="ta-chip" style="background:${COLOR_ESTADO[e]};color:#0A192F">${ETIQUETA_ESTADO[e]} con ${esc(nombreLluvia(lluvia).toLowerCase())}</span>
+    riesgo = `<span class="ta-chip" style="background:${COLOR_ESTADO[e]};color:#0A192F">${ETIQUETA_ESTADO[e]} con el pronóstico</span>
       <small>En su parte más baja empieza a inundarse desde ≈ ${T} mm (${esc(nombreLluvia(T).toLowerCase())}).</small>${bloqueTiempo(T, horas)}`;
   }
   const rep = cerca.length

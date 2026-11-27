@@ -2,7 +2,6 @@
 import { useState } from 'react';
 import { enlaceGoogleMaps, textoDistancia, type Modo, type ResultadoRuta } from '@/lib/evacuacion';
 import { COLOR_ESTADO } from '@/lib/riesgo';
-import { nombreLluvia } from '@/lib/lluvia';
 
 // Hoja inferior de la ruta de evacuación: a pie o en vehículo, desde tu ubicación o un punto del mapa.
 type Props = {
@@ -27,7 +26,7 @@ export function PanelEvacuacion({ modo, setModo, resultado, tieneOrigen, buscand
       <div className="flex items-center gap-2">
         <div className="min-w-0">
           <h2 className="font-display text-sm font-extrabold text-white">🏃 Ruta de evacuación</h2>
-          <p className="text-[10px] leading-tight text-texto-sec">A zona alta, evitando calles que se inundan con {nombreLluvia(lluvia).toLowerCase()} ({lluvia} mm).</p>
+          <p className="text-[10px] leading-tight text-texto-sec">A zona alta, evitando las calles que se inundan con el pronóstico ({lluvia} mm).</p>
         </div>
         <button type="button" onClick={onCerrar} aria-label="Quitar ruta" className="ml-auto grid h-7 w-7 shrink-0 place-items-center rounded-full bg-navy-700 text-lg text-white">
           ×
@@ -74,7 +73,7 @@ export function PanelEvacuacion({ modo, setModo, resultado, tieneOrigen, buscand
       {resultado && !resultado.ok && (
         <p className="mt-3 rounded-xl bg-navy-700 p-3 text-sm text-white">
           {resultado.motivo === 'seguro' && (
-            <>✅ <b>Estás en una zona alta</b> ({Math.round(resultado.alturaOrigen ?? 0)} m de altura). Con esta lluvia no hace falta moverte: quédate en un lugar techado y atento a los avisos.</>
+            <>✅ <b>Estás en una zona alta</b> ({Math.round(resultado.alturaOrigen ?? 0)} m de altura). Con el pronóstico no hace falta moverte: quédate en un lugar techado y atento a los avisos.</>
           )}
           {resultado.motivo === 'lejos' && <>Ese punto está lejos de las calles de esta ciudad. Cambia de ciudad con el botón 📍 o toca un punto dentro del pueblo.</>}
           {resultado.motivo === 'sin-ruta' && (
@@ -108,7 +107,7 @@ export function PanelEvacuacion({ modo, setModo, resultado, tieneOrigen, buscand
               Pasa {textoDistancia(r.metrosCuidado)} por calles amarillas: puede haber charcos, ve con cuidado.
             </p>
           ) : (
-            <p className="mt-2 rounded-lg bg-[#22C55E]/15 px-2.5 py-1.5 text-xs text-white">✅ Todo el camino va por calles sin peligro con esta lluvia.</p>
+            <p className="mt-2 rounded-lg bg-[#22C55E]/15 px-2.5 py-1.5 text-xs text-white">✅ Todo el camino va por calles sin peligro con el pronóstico.</p>
           )}
           {r.pasaPorReportes && (
             <p className="mt-1.5 rounded-lg bg-aviso-naranja/20 px-2.5 py-1.5 text-xs text-white">🚨 Pasa cerca de un reporte de vecinos con agua. Mira la foto antes de salir.</p>

@@ -1,8 +1,8 @@
 'use client';
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Encabezado } from '@/components/Encabezado';
-import { SimuladorLluvia } from '@/components/SimuladorLluvia';
+import { PanelPronostico } from '@/components/PanelPronostico';
 import { PanelClima } from '@/components/PanelClima';
 import { PanelAvisos } from '@/components/PanelAvisos';
 import { ModalReporte } from '@/components/ModalReporte';
@@ -32,9 +32,9 @@ type Pestana = 'mapa' | 'clima' | 'avisos' | 'reportes';
 
 export default function Inicio() {
   const [datos, setDatos] = useState<DatosTerritorio | null>(null);
-  const [lluvia, setLluvia] = useState(25);
-  const [origenLluvia, setOrigenLluvia] = useState<string | null>('Moderada: lluvia de varias horas');
-  const lluviaTocada = useRef(false);
+  // Lluvia que pinta el mapa: siempre la del pronóstico (o la de un aviso SENAMHI elegido).
+  const [lluvia, setLluvia] = useState(0);
+  const [avisoMapa, setAvisoMapa] = useState<{ mm: number; titulo: string } | null>(null);
   const [guia, setGuia] = useState(false);
   const [animacion, setAnimacion] = useState(false);
   const [idCiudad, setIdCiudad] = useState<string | null>(null);
@@ -78,7 +78,6 @@ export default function Inicio() {
   const cambiarCiudad = (id: string) => {
     setSelector(false);
     if (id === idCiudad) return;
-    lluviaTocada.current = false;
     setClima(null);
     setIdCiudad(id);
     try { localStorage.setItem('ta:ciudad', id); } catch {}
@@ -113,11 +112,6 @@ export default function Inicio() {
           if (!vivo) return;
           setClima(p);
           setErrorClima(false);
-          // Al abrir, el mapa muestra la lluvia esperada de verdad (si el vecino aún no eligió otra).
-          if (!lluviaTocada.current) {
-            setLluvia(Math.min(150, Math.round(p.total48)));
-            setOrigenLluvia(`Lluvia prevista para las próximas 48 h: ${p.total48} mm`);
-          }
         })
         .catch(() => vivo && setErrorClima(true));
     cargar();
@@ -195,12 +189,6 @@ export default function Inicio() {
     return { ...datos, lugares: datos.lugares.filter((l) => km(l.p) <= lim) };
   }, [datos, ciudad]);
 
-  const simular = (mm: number, origen: string) => {
-    lluviaTocada.current = true;
-    setLluvia(Math.max(0, Math.min(150, mm)));
-    setOrigenLluvia(origen);
-    setPestana('mapa');
-  };
 
   const elegirPunto = (p: [number, number]) => {
     if (eligiendoRuta) {
@@ -260,7 +248,7 @@ export default function Inicio() {
     <>
       <PanelAvisos
         avisos={avisos}
-        onImpacto={(a) => simular(a.lluvia_mm, `Aviso ${a.nivel.toUpperCase()} SENAMHI: ${a.lluvia_mm} mm`)}
+        onImpacto={(a) => { setAvisoMapa({ mm: a.lluvia_mm, titulo: `nivel ${a.nivel}, ${a.lluvia_mm} mm` }); setPestana('mapa'); }}
         onPublicar={async (a) => {
           await publicarAviso(a);
           await recargarAvisos();
@@ -273,7 +261,7 @@ export default function Inicio() {
         puedePublicar={coordinador}
         onIngresar={() => setLoginAbierto(true)}
       />
-      <PanelClima ciudad={nombreCorto(ciudad)} onAnimacion={() => setAnimacion(true)} p={clima} error={errorClima} onSimular={(mm) => simular(mm, `Lluvia prevista para las próximas 48 h: ${clima?.total48 ?? mm} mm`)} />
+      <PanelClima ciudad={nombreCorto(ciudad)} onAnimacion={() => setAnimacion(true)} p={clima} error={errorClima} onSimular={() => { setAvisoMapa(null); setPestana('mapa'); }} />
     </>
   );
 
@@ -330,13 +318,14 @@ export default function Inicio() {
               />
             ) : (
             <div className={`pointer-events-auto ${evac ? 'hidden' : ''}`}>
-              <SimuladorLluvia
-                lluvia={lluvia}
-                setLluvia={(n, o) => { lluviaTocada.current = true; setLluvia(n); setOrigenLluvia(o ?? null); }}
+              <PanelPronostico
                 calles={calles}
-                origen={origenLluvia}
-                pronostico48={clima ? clima.total48 : null}
                 horas={clima ? clima.horas : null}
+                error={errorClima}
+                lluvia={lluvia}
+                onLluvia={(mm) => setLluvia(Math.max(0, Math.min(150, mm)))}
+                aviso={avisoMapa}
+                onQuitarAviso={() => setAvisoMapa(null)}
               />
             </div>
             )}

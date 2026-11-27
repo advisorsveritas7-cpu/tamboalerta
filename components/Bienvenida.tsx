@@ -11,9 +11,9 @@ const PASOS = [
     muestra: true,
   },
   {
-    icono: '🌧️',
-    titulo: 'Elige cuánta lluvia',
-    texto: 'Abajo del mapa toca Leve, Moderada, Fuerte o Extrema y el mapa cambia al instante. "Pronóstico" usa la lluvia esperada de verdad para las próximas 48 horas.',
+    icono: '📡',
+    titulo: 'El mapa sigue el pronóstico',
+    texto: 'Los colores muestran las calles que se afectarían con la lluvia pronosticada para las próximas 48 horas. Toca "¿Cuánto tiempo queda?" o una calle para ver cuántas horas faltan para que se inunde.',
   },
   {
     icono: '🏃',
