@@ -28,6 +28,7 @@ export function SimuladorLluvia({ lluvia, setLluvia, calles, origen, pronostico4
   }, [calles, lluvia]);
   const total = calles.length || 1;
   const [detalle, setDetalle] = useState(false);
+  const [oculto, setOculto] = useState(false);
 
   // Animación "ver cómo sube el agua": recorre de 0 a 120 mm y vuelve al valor elegido.
   const [animando, setAnimando] = useState(false);
@@ -74,15 +75,41 @@ export function SimuladorLluvia({ lluvia, setLluvia, calles, origen, pronostico4
         ? 'Ninguna calle se inunda, pero hay charcos'
         : 'Ninguna calle en peligro';
 
+  // Versión mínima: una píldora que deja ver todo el mapa.
+  if (oculto) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOculto(false)}
+        aria-expanded={false}
+        className="flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-navy-800/95 py-2 pl-3 pr-4 text-left text-xs shadow-xl backdrop-blur"
+      >
+        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: COLOR_ESTADO[estadoGeneral] }} />
+        <span className="truncate font-semibold text-white">
+          {nombreLluvia(lluvia)} · {resumen.critico} {resumen.critico === 1 ? 'calle se inunda' : 'calles se inundan'}
+        </span>
+        <span className="shrink-0 font-bold text-cian">Mostrar ▲</span>
+      </button>
+    );
+  }
+
   return (
     <section className="rounded-2xl border border-white/10 bg-navy-800/95 p-3 shadow-xl backdrop-blur lg:p-4" aria-labelledby="sim-titulo">
-      <div className="flex items-baseline justify-between gap-2">
+      <div className="flex items-center justify-between gap-2">
         <h2 id="sim-titulo" className="font-display text-[13px] font-bold text-white">
           ¿Qué pasa si llueve?
         </h2>
-        <p className="text-[11px] text-texto-sec">
+        <p className="ml-auto text-[11px] text-texto-sec">
           {nombreLluvia(lluvia)} · <b className="tabular-nums text-white">{lluvia} mm</b>
         </p>
+        <button
+          type="button"
+          onClick={() => setOculto(true)}
+          aria-expanded={true}
+          className="-my-1 rounded-full border border-white/15 px-2.5 py-1 text-[11px] font-bold text-cian hover:bg-cian/10"
+        >
+          Ocultar ▼
+        </button>
       </div>
 
       {/* Opciones de lluvia en palabras */}
