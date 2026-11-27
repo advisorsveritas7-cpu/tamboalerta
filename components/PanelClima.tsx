@@ -2,9 +2,18 @@
 import type { Pronostico } from '@/lib/clima';
 import { describirCodigo } from '@/lib/clima';
 
-type Props = { p: Pronostico | null; error: boolean; onSimular: (mm: number) => void };
+type Props = { p: Pronostico | null; error: boolean; onSimular: (mm: number) => void; onAnimacion: () => void };
 
-export function PanelClima({ p, error, onSimular }: Props) {
+export function PanelClima({ p, error, onSimular, onAnimacion }: Props) {
+  const botonAnimacion = (
+    <button
+      type="button"
+      onClick={onAnimacion}
+      className="mt-3 w-full rounded-xl bg-cian py-2.5 text-sm font-extrabold text-navy-900 hover:bg-cian-300"
+    >
+      ▶ Ver simulación animada de lluvia
+    </button>
+  );
   if (!p) {
     return (
       <section className="rounded-2xl border border-white/10 bg-navy-800 p-4">
@@ -14,6 +23,7 @@ export function PanelClima({ p, error, onSimular }: Props) {
               ? 'La vista previa no puede consultar Open-Meteo. En la app publicada aquí aparece el pronóstico en vivo de 48 horas.'
               : 'No se pudo cargar el pronóstico. Revisa tu conexión.'
             : 'Cargando pronóstico…'}</p>
+        {botonAnimacion}
       </section>
     );
   }
@@ -69,6 +79,7 @@ export function PanelClima({ p, error, onSimular }: Props) {
       >
         Ver este pronóstico en el mapa
       </button>
+      {botonAnimacion}
       <p className="mt-2 text-[10px] text-texto-sec/70">Fuente: Open-Meteo · actualizado {new Date(p.actualizado).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</p>
     </section>
   );

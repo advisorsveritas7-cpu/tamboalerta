@@ -9,6 +9,7 @@ import { ModalReporte } from '@/components/ModalReporte';
 import { ListaReportes } from '@/components/ListaReportes';
 import { AccesoCoordinador } from '@/components/AccesoCoordinador';
 import { Bienvenida } from '@/components/Bienvenida';
+import { VentanaSimulacion } from '@/components/VentanaSimulacion';
 import type { Aviso, DatosTerritorio, Reporte } from '@/lib/tipos';
 import { obtenerPronostico, type Pronostico } from '@/lib/clima';
 import { escucharAvisos, escucharReportes, listarAvisos, listarReportes, publicarAviso, retirarAviso } from '@/lib/datos';
@@ -29,6 +30,7 @@ export default function Inicio() {
   const [origenLluvia, setOrigenLluvia] = useState<string | null>('Moderada: lluvia de varias horas');
   const lluviaTocada = useRef(false);
   const [guia, setGuia] = useState(false);
+  const [animacion, setAnimacion] = useState(false);
   const [clima, setClima] = useState<Pronostico | null>(null);
   const [errorClima, setErrorClima] = useState(false);
   const [avisos, setAvisos] = useState<Aviso[]>([]);
@@ -174,7 +176,7 @@ export default function Inicio() {
         puedePublicar={coordinador}
         onIngresar={() => setLoginAbierto(true)}
       />
-      <PanelClima p={clima} error={errorClima} onSimular={(mm) => simular(mm, `Lluvia prevista para las próximas 48 h: ${clima?.total48 ?? mm} mm`)} />
+      <PanelClima onAnimacion={() => setAnimacion(true)} p={clima} error={errorClima} onSimular={(mm) => simular(mm, `Lluvia prevista para las próximas 48 h: ${clima?.total48 ?? mm} mm`)} />
     </>
   );
 
@@ -241,6 +243,13 @@ export default function Inicio() {
               Río / quebrada
             </span>
           </div>
+          <button
+            type="button"
+            onClick={() => setAnimacion(true)}
+            className="absolute left-3 top-[7.6rem] z-[500] flex items-center gap-1.5 rounded-full bg-cian px-3 py-1.5 text-[11px] font-extrabold text-navy-900 shadow-lg"
+          >
+            ▶ Simulación de lluvia
+          </button>
 
           {seleccionando && (
             <div className="absolute inset-x-3 top-3 z-[600] rounded-xl bg-cian px-4 py-3 text-center text-sm font-bold text-navy-900 shadow-xl">
@@ -323,6 +332,8 @@ export default function Inicio() {
           notificar('Reporte enviado. ¡Gracias por avisar!');
         }}
       />
+
+      {animacion && <VentanaSimulacion onCerrar={() => setAnimacion(false)} />}
 
       {guia && <Bienvenida onCerrar={cerrarGuia} />}
 

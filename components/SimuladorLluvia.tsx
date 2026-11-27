@@ -96,17 +96,17 @@ export function SimuladorLluvia({ lluvia, setLluvia, calles, origen, pronostico4
   return (
     <section className="rounded-2xl border border-white/10 bg-navy-800/95 p-3 shadow-xl backdrop-blur lg:p-4" aria-labelledby="sim-titulo">
       <div className="flex items-center justify-between gap-2">
-        <h2 id="sim-titulo" className="font-display text-[13px] font-bold text-white">
+        <h2 id="sim-titulo" className="whitespace-nowrap font-display text-[13px] font-bold text-white">
           ¿Qué pasa si llueve?
         </h2>
-        <p className="ml-auto text-[11px] text-texto-sec">
-          {nombreLluvia(lluvia)} · <b className="tabular-nums text-white">{lluvia} mm</b>
+        <p className="ml-auto whitespace-nowrap text-[11px] tabular-nums text-texto-sec">
+          <b className="text-white">{lluvia}</b> mm
         </p>
         <button
           type="button"
           onClick={() => setOculto(true)}
           aria-expanded={true}
-          className="-my-1 rounded-full border border-white/15 px-2.5 py-1 text-[11px] font-bold text-cian hover:bg-cian/10"
+          className="-my-1 whitespace-nowrap rounded-full border border-white/15 px-2.5 py-1 text-[11px] font-bold text-cian hover:bg-cian/10"
         >
           Ocultar ▼
         </button>
