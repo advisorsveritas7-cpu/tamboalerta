@@ -109,7 +109,19 @@ export function ModalReporte({ abierto, onCerrar, punto, setPunto, onElegirEnMap
       limpiar();
       onCerrar();
     } catch (err) {
-      setError((err as Error).message || 'No se pudo enviar. Revisa tu señal e inténtalo de nuevo.');
+      // Mensajes claros en español en vez del error técnico del servidor.
+      const m = String((err as { message?: string })?.message ?? '');
+      setError(
+        /lat_check|lon_check/.test(m)
+          ? 'Ese punto está fuera de la región Piura. Marca en el mapa el lugar inundado dentro de la región.'
+          : /lugar/.test(m)
+            ? 'Escribe el nombre de la calle o sector (al menos 2 letras).'
+            : /payload|too large|413|size/i.test(m)
+              ? 'El archivo es muy pesado. Prueba con una foto o un video más corto.'
+              : /mime|type/i.test(m)
+                ? 'Ese tipo de archivo no se puede subir. Usa una foto (JPG) o un video MP4.'
+                : `No se pudo enviar. Revisa tu señal e inténtalo de nuevo.${m ? ` (Detalle: ${m.slice(0, 80)})` : ''}`,
+      );
     } finally {
       setEnviando(false);
     }
