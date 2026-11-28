@@ -18,7 +18,7 @@ import { rutaEvacuacion, type Modo } from '@/lib/evacuacion';
 import { CIUDADES, CIUDAD_INICIAL, ciudadPorId, nombreCorto } from '@/lib/ciudades';
 import type { Aviso, DatosTerritorio, Reporte } from '@/lib/tipos';
 import { obtenerPronostico, type Pronostico } from '@/lib/clima';
-import { escucharAvisos, escucharReportes, listarAvisos, listarReportes, publicarAviso, retirarAviso } from '@/lib/datos';
+import { aprobarReporte, borrarReporte, denunciarReporte, escucharAvisos, escucharReportes, listarAvisos, listarReportes, publicarAviso, retirarAviso, soyCoordinador } from '@/lib/datos';
 import { COLOR_ESTADO } from '@/lib/riesgo';
 import { MODO_SUPABASE } from '@/lib/config';
 import { supabase } from '@/lib/supabase';
@@ -129,6 +129,7 @@ export default function Inicio() {
     return escucharAvisos(recargarAvisos);
   }, [recargarAvisos]);
 
+  const recargarReportes = useCallback(() => listarReportes().then(setReportes).catch(() => {}), []);
   useEffect(() => {
     listarReportes()
       .then((rs) => {
@@ -137,10 +138,12 @@ export default function Inicio() {
         if (id) setEnfocar({ id, n: Date.now() });
       })
       .catch(() => notificar('No se pudieron cargar los reportes.'));
-    return escucharReportes((r) => {
-      setReportes((prev) => (prev.some((x) => x.id === r.id) ? prev : [r, ...prev]));
-    });
-  }, [notificar]);
+    return escucharReportes(recargarReportes);
+  }, [notificar, recargarReportes]);
+  // Lo que ve todo el mundo (aprobado) y lo que espera revisión.
+  const publicos = useMemo(() => reportes.filter((r) => r.aprobado !== false), [reportes]);
+  const porRevisar = useMemo(() => reportes.filter((r) => r.aprobado === false && !r.mio), [reportes]);
+  const misPendientes = useMemo(() => reportes.filter((r) => r.aprobado === false && r.mio), [reportes]);
 
   // Guía de bienvenida la primera vez
   useEffect(() => {
@@ -172,8 +175,13 @@ export default function Inicio() {
     if (!psb) return;
     let fin = () => {};
     psb.then((sb) => {
-      sb.auth.getSession().then(({ data }) => setCoordinador(!!data.session));
-      const { data } = sb.auth.onAuthStateChange((_e, s) => setCoordinador(!!s));
+      // Coordinador = sesión iniciada y correo autorizado en la lista de coordinadores.
+      const revisar = (hay: boolean) => {
+        if (!hay) return setCoordinador(false);
+        soyCoordinador().then((ok) => { setCoordinador(ok); recargarReportes(); });
+      };
+      sb.auth.getSession().then(({ data }) => revisar(!!data.session));
+      const { data } = sb.auth.onAuthStateChange((_e, s) => revisar(!!s));
       fin = () => data.subscription.unsubscribe();
     });
     return () => fin();
@@ -204,8 +212,8 @@ export default function Inicio() {
 
   // La ruta se recalcula sola si cambia la lluvia, el modo, la ciudad o llegan reportes nuevos.
   const resultadoEvac = useMemo(
-    () => (evac && origenEvac && calles.length ? rutaEvacuacion(calles, origenEvac, lluvia, modoEvac, reportes) : null),
-    [evac, origenEvac, calles, lluvia, modoEvac, reportes],
+    () => (evac && origenEvac && calles.length ? rutaEvacuacion(calles, origenEvac, lluvia, modoEvac, publicos) : null),
+    [evac, origenEvac, calles, lluvia, modoEvac, publicos],
   );
   const abrirEvac = () => {
     setEvac(true);
@@ -289,7 +297,7 @@ export default function Inicio() {
           {idCiudad && <MapaRiesgo
             datos={datosMapa}
             lluvia={lluvia}
-            reportes={reportes}
+            reportes={publicos}
             seleccionando={seleccionando}
             puntoElegido={punto}
             onElegirPunto={elegirPunto}
@@ -418,7 +426,17 @@ export default function Inicio() {
               {pestana !== 'reportes' && panelLateral}
             </div>
             <div className={pestana === 'reportes' ? '' : 'hidden lg:block'}>
-              <ListaReportes reportes={reportes} onVer={verReporte} />
+              <ListaReportes
+                reportes={publicos}
+                pendientes={misPendientes}
+                porRevisar={coordinador && MODO_SUPABASE ? porRevisar : []}
+                coordinador={coordinador && MODO_SUPABASE}
+                onIngresar={() => setLoginAbierto(true)}
+                onVer={verReporte}
+                onAprobar={async (id) => { try { await aprobarReporte(id); notificar('Aprobado: ya lo ven todos'); } catch { notificar('No se pudo aprobar'); } recargarReportes(); }}
+                onBorrar={async (id) => { try { await borrarReporte(id); notificar('Reporte borrado'); } catch { notificar('No se pudo borrar'); } recargarReportes(); }}
+                onDenunciar={async (id) => { try { await denunciarReporte(id); } catch {} notificar('Gracias. Un coordinador lo revisará.'); recargarReportes(); }}
+              />
             </div>
           </div>
         </aside>
@@ -445,7 +463,7 @@ export default function Inicio() {
             ['mapa', 'Mapa', 'M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Zm0 0v14m6-12v14'],
             ['avisos', 'Avisos', 'M12 3 2 20h20L12 3Zm0 6v5m0 3v.5'],
             ['clima', 'Clima', 'M7 18a5 5 0 1 1 1-9.9A6 6 0 0 1 19 10a4 4 0 0 1-1 8H7Zm1 3 1-2m3 2 1-2m3 2 1-2'],
-            ['reportes', `En vivo${reportes.length ? ` (${reportes.length})` : ''}`, 'M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12Zm0-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z'],
+            ['reportes', `En vivo${publicos.length ? ` (${publicos.length})` : ''}${coordinador && MODO_SUPABASE && porRevisar.length ? ` · ${porRevisar.length}🔔` : ''}`, 'M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12Zm0-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z'],
           ] as [Pestana, string, string][]
         ).map(([k, t, d]) => (
           <button
@@ -475,9 +493,15 @@ export default function Inicio() {
         }}
         onCreado={(r) => {
           setReportes((prev) => (prev.some((x) => x.id === r.id) ? prev : [r, ...prev]));
-          setPestana('mapa');
-          setEnfocar({ id: r.id, n: Date.now() });
-          notificar('Reporte enviado. ¡Gracias por avisar!');
+          if (r.aprobado === false) {
+            // Espera revisión: se muestra en "En vivo" como pendiente solo en este teléfono.
+            setPestana('reportes');
+            notificar('Enviado. Se publicará cuando un coordinador lo revise.');
+          } else {
+            setPestana('mapa');
+            setEnfocar({ id: r.id, n: Date.now() });
+            notificar('Reporte enviado. ¡Gracias por avisar!');
+          }
         }}
       />
 
@@ -489,7 +513,7 @@ export default function Inicio() {
 
       {buscador && (
         <Buscador
-          reportes={reportes}
+          reportes={publicos}
           onCerrar={() => setBuscador(false)}
           onElegir={(r: Resultado) => {
             setBuscador(false);

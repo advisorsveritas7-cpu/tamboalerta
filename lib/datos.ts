@@ -10,6 +10,7 @@ import { AVISOS_EJEMPLO } from './avisos-ejemplo';
 
 const K_REP = 'ta:reportes';
 const K_AV = 'ta:avisos';
+const K_MIOS = 'ta:mis-reportes';
 const canal = typeof window !== 'undefined' && 'BroadcastChannel' in window ? new BroadcastChannel('tamboalerta') : null;
 
 function leer<T>(k: string, porDefecto: T): T {
@@ -35,11 +36,50 @@ const HACE_72H = () => new Date(Date.now() - 72 * 3600_000).toISOString();
 export async function listarReportes(): Promise<Reporte[]> {
   const sb = await supabase();
   if (sb) {
+    // Los vecinos solo reciben lo aprobado (lo filtra la base de datos); los coordinadores reciben todo.
     const { data, error } = await sb.from('reportes').select('*').gte('creado', HACE_72H()).order('creado', { ascending: false }).limit(500);
     if (error) throw error;
-    return data as Reporte[];
+    const ids = new Set((data as Reporte[]).map((r) => r.id));
+    // Lo que envié yo y aún espera revisión: solo lo veo en este teléfono, marcado como pendiente.
+    const mios = leer<Reporte[]>(K_MIOS, []).filter((r) => r.creado >= HACE_72H() && !ids.has(r.id));
+    return [...mios, ...(data as Reporte[])];
   }
   return leer<Reporte[]>(K_REP, []).filter((r) => r.creado >= HACE_72H());
+}
+
+/** Coordinador: aprobar un reporte para que todos lo vean. */
+export async function aprobarReporte(id: string): Promise<void> {
+  const sb = await supabase();
+  if (!sb) return;
+  const { error } = await sb.from('reportes').update({ aprobado: true, denuncias: 0 }).eq('id', id);
+  if (error) throw error;
+}
+
+/** Coordinador: borrar un reporte (falso o inadecuado). */
+export async function borrarReporte(id: string): Promise<void> {
+  const sb = await supabase();
+  if (!sb) {
+    escribir(K_REP, leer<Reporte[]>(K_REP, []).filter((r) => r.id !== id));
+    return;
+  }
+  const { error } = await sb.from('reportes').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/** Vecino: denunciar contenido inadecuado. Con 2 denuncias vuelve a revisión. */
+export async function denunciarReporte(id: string): Promise<void> {
+  const sb = await supabase();
+  if (!sb) return;
+  const { error } = await sb.rpc('denunciar', { p_id: id });
+  if (error) throw error;
+}
+
+/** ¿La sesión actual es de un coordinador autorizado? */
+export async function soyCoordinador(): Promise<boolean> {
+  const sb = await supabase();
+  if (!sb) return true;
+  const { data } = await sb.rpc('es_coordinador');
+  return data === true;
 }
 
 export async function crearReporte(r: Omit<Reporte, 'id' | 'creado' | 'foto_url' | 'video_url'>, foto: Blob | null, video: { blob: Blob; tipo: string } | null = null): Promise<Reporte> {
@@ -60,9 +100,12 @@ export async function crearReporte(r: Omit<Reporte, 'id' | 'creado' | 'foto_url'
       if (error) throw error;
       video_url = sb.storage.from('fotos').getPublicUrl(ruta).data.publicUrl;
     }
-    const { data, error } = await sb.from('reportes').insert({ ...r, foto_url, ...(video_url ? { video_url } : {}) }).select().single();
+    // Entra sin aprobar: no se puede leer de vuelta hasta que un coordinador lo revise.
+    const nuevo: Reporte = { ...r, id: uid(), creado: new Date().toISOString(), foto_url, video_url, aprobado: false, mio: true };
+    const { error } = await sb.from('reportes').insert({ ...r, id: nuevo.id, foto_url, ...(video_url ? { video_url } : {}) });
     if (error) throw error;
-    return data as Reporte;
+    try { escribir(K_MIOS, [nuevo, ...leer<Reporte[]>(K_MIOS, [])].slice(0, 20)); } catch {}
+    return nuevo;
   }
   // En modo local el video solo se ve en esta sesión (no cabe en el almacenamiento del teléfono).
   const nuevo: Reporte = { ...r, id: uid(), creado: new Date().toISOString(), foto_url: foto ? await blobADataUrl(foto) : null, video_url: video ? URL.createObjectURL(video.blob) : null };
@@ -72,20 +115,23 @@ export async function crearReporte(r: Omit<Reporte, 'id' | 'creado' | 'foto_url'
   return nuevo;
 }
 
-export function escucharReportes(alLlegar: (r: Reporte) => void): () => void {
+/** Avisa cuando cambia algo (nuevo, aprobado o borrado) para volver a cargar la lista. */
+export function escucharReportes(alCambiar: () => void): () => void {
   const psb = supabase();
   if (psb) {
     let fin = () => {};
     psb.then((sb) => {
       const ch = sb
         .channel('reportes-en-vivo')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reportes' }, (p) => alLlegar(p.new as Reporte))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'reportes' }, () => alCambiar())
         .subscribe();
-      fin = () => void sb.removeChannel(ch);
+      // Respaldo por si el tiempo real se corta: se vuelve a consultar cada minuto.
+      const t = setInterval(alCambiar, 60_000);
+      fin = () => { clearInterval(t); void sb.removeChannel(ch); };
     });
     return () => fin();
   }
-  const f = (e: MessageEvent) => e.data?.tipo === 'reporte' && alLlegar(e.data.dato);
+  const f = (e: MessageEvent) => e.data?.tipo === 'reporte' && alCambiar();
   canal?.addEventListener('message', f);
   return () => canal?.removeEventListener('message', f);
 }

@@ -24,8 +24,56 @@ function ciudadCercana(r: Reporte) {
   return mejor;
 }
 
-export function ListaReportes({ reportes, onVer }: { reportes: Reporte[]; onVer: (r: Reporte) => void }) {
+type Props = {
+  reportes: Reporte[]; // aprobados (los ve todo el mundo)
+  pendientes: Reporte[]; // enviados desde este teléfono, esperando revisión
+  porRevisar: Reporte[]; // solo coordinadores
+  coordinador: boolean;
+  onVer: (r: Reporte) => void;
+  onAprobar: (id: string) => void;
+  onBorrar: (id: string) => void;
+  onDenunciar: (id: string) => void;
+  onIngresar: () => void;
+};
+
+function leerDenunciados(): string[] {
+  try { return JSON.parse(localStorage.getItem('ta:denunciados') || '[]'); } catch { return []; }
+}
+
+function Medio({ r, onVer }: { r: Reporte; onVer?: () => void }) {
+  if (r.video_url) return <video src={r.video_url} controls playsInline muted preload="metadata" className="max-h-72 w-full bg-black" />;
+  if (r.foto_url)
+    return onVer ? (
+      <button type="button" onClick={onVer} className="block w-full" aria-label={`Ver ${r.lugar} en el mapa`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={r.foto_url} alt={`Foto de ${r.lugar}`} loading="lazy" className="max-h-72 w-full object-cover" />
+      </button>
+    ) : (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={r.foto_url} alt={`Foto de ${r.lugar}`} loading="lazy" className="max-h-72 w-full object-cover" />
+    );
+  return <div className="grid h-20 place-items-center text-3xl">🌊</div>;
+}
+
+export function ListaReportes({ reportes, pendientes, porRevisar, coordinador, onVer, onAprobar, onBorrar, onDenunciar, onIngresar }: Props) {
   const [filtro, setFiltro] = useState<string>('todas');
+  const [denunciados, setDenunciados] = useState<string[]>(leerDenunciados);
+  const [confirmar, setConfirmar] = useState<string | null>(null);
+  const denunciar = (id: string) => {
+    const n = [...denunciados, id];
+    setDenunciados(n);
+    try { localStorage.setItem('ta:denunciados', JSON.stringify(n)); } catch {}
+    onDenunciar(id);
+  };
+  const botonBorrar = (id: string) => (
+    <button
+      type="button"
+      onClick={() => (confirmar === id ? (setConfirmar(null), onBorrar(id)) : setConfirmar(id))}
+      className={`flex-1 rounded-lg py-1.5 text-xs font-bold ${confirmar === id ? 'bg-aviso-rojo text-white' : 'border border-aviso-rojo/60 text-aviso-rojo'}`}
+    >
+      {confirmar === id ? '¿Seguro? Toca para borrar' : '🗑️ Borrar'}
+    </button>
+  );
   const conCiudad = useMemo(() => reportes.map((r) => ({ r, c: ciudadCercana(r) })), [reportes]);
   const ciudades = [...new Map(conCiudad.map(({ c }) => [c.id, c])).values()];
   const visibles = conCiudad.filter(({ c }) => filtro === 'todas' || c.id === filtro);
@@ -40,9 +88,61 @@ export function ListaReportes({ reportes, onVer }: { reportes: Reporte[]; onVer:
         <h2 id="rep-lista" className="font-display text-base font-extrabold text-white">Ahora en vivo</h2>
         <span className="ml-auto text-[11px] text-texto-sec">últimas 72 h</span>
       </div>
-      <p className="mt-0.5 text-[11px] text-texto-sec">Fotos y videos de calles inundadas enviados por los vecinos.</p>
+      <p className="mt-0.5 text-[11px] text-texto-sec">Fotos y videos de calles inundadas enviados por los vecinos y revisados por un coordinador.</p>
       {!MODO_SUPABASE && (
         <p className="mt-1 text-[11px] text-aviso-naranja">Modo local: por ahora solo ves los reportes de este teléfono.</p>
+      )}
+
+      {/* Coordinadores: envíos esperando revisión */}
+      {coordinador && (
+        <div className="mt-3 rounded-xl border border-aviso-amarillo/50 bg-aviso-amarillo/10 p-3">
+          <p className="font-display text-sm font-extrabold text-white">🔔 Por revisar ({porRevisar.length})</p>
+          <p className="text-[11px] text-texto-sec">Nadie los ve hasta que los apruebes. Borra lo falso o inadecuado.</p>
+          {porRevisar.length === 0 && <p className="mt-2 text-xs text-texto-sec">No hay envíos pendientes.</p>}
+          <ul className="mt-2 flex flex-col gap-3">
+            {porRevisar.map((r) => (
+              <li key={r.id} className="overflow-hidden rounded-xl bg-navy-700">
+                <div className="relative bg-navy-600">
+                  <Medio r={r} />
+                  <span className="absolute left-2 top-2 rounded-full px-2 py-0.5 text-[11px] font-extrabold text-navy-900 shadow" style={{ background: NIVELES[r.nivel].color }}>
+                    {NIVELES[r.nivel].etiqueta}
+                  </span>
+                  <span className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-white">{hace(r.creado)}</span>
+                </div>
+                <div className="p-3">
+                  <p className="font-semibold text-white">{r.lugar}</p>
+                  <p className="text-[11px] text-texto-sec">
+                    📍 {nombreCorto(ciudadCercana(r))} · {horaCorta(r.creado)}
+                    {r.descripcion ? ` · ${r.descripcion}` : ''}
+                    {r.denuncias ? ` · 🚩 ${r.denuncias} denuncias` : ''}
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <button type="button" onClick={() => onAprobar(r.id)} className="flex-1 rounded-lg bg-[#22C55E] py-1.5 text-xs font-extrabold text-navy-900">
+                      ✅ Aprobar
+                    </button>
+                    {botonBorrar(r.id)}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Lo que envié desde este teléfono y espera revisión */}
+      {pendientes.length > 0 && (
+        <div className="mt-3 rounded-xl border border-white/10 bg-navy-700/60 p-3">
+          <p className="text-xs font-bold text-white">⏳ Tus envíos en revisión ({pendientes.length})</p>
+          <p className="text-[11px] text-texto-sec">Se publicarán para todos cuando un coordinador los apruebe.</p>
+          <ul className="mt-1.5 flex flex-col gap-1">
+            {pendientes.map((r) => (
+              <li key={r.id} className="truncate text-[11px] text-texto-sec">
+                • {r.lugar} · {NIVELES[r.nivel].etiqueta} · {horaCorta(r.creado)}
+                {r.video_url ? ' · 🎥' : r.foto_url ? ' · 📷' : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {ciudades.length > 1 && (
@@ -69,16 +169,7 @@ export function ListaReportes({ reportes, onVer }: { reportes: Reporte[]; onVer:
             return (
               <li key={r.id} className="overflow-hidden rounded-xl bg-navy-700">
                 <div className="relative bg-navy-600">
-                  {r.video_url ? (
-                    <video src={r.video_url} controls playsInline muted preload="metadata" className="max-h-72 w-full bg-black" />
-                  ) : r.foto_url ? (
-                    <button type="button" onClick={() => onVer(r)} className="block w-full" aria-label={`Ver ${r.lugar} en el mapa`}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={r.foto_url} alt={`Foto de ${r.lugar}`} loading="lazy" className="max-h-72 w-full object-cover" />
-                    </button>
-                  ) : (
-                    <div className="grid h-20 place-items-center text-3xl">🌊</div>
-                  )}
+                  <Medio r={r} onVer={() => onVer(r)} />
                   <span className="absolute left-2 top-2 rounded-full px-2 py-0.5 text-[11px] font-extrabold text-navy-900 shadow" style={{ background: n.color }}>
                     {n.etiqueta}
                   </span>
@@ -98,11 +189,28 @@ export function ListaReportes({ reportes, onVer }: { reportes: Reporte[]; onVer:
                       Compartir por WhatsApp
                     </a>
                   </div>
+                  {coordinador ? (
+                    <div className="mt-2 flex">{botonBorrar(r.id)}</div>
+                  ) : MODO_SUPABASE && (
+                    <button
+                      type="button"
+                      disabled={denunciados.includes(r.id)}
+                      onClick={() => denunciar(r.id)}
+                      className="mt-2 text-[11px] text-texto-sec underline disabled:no-underline disabled:opacity-60"
+                    >
+                      {denunciados.includes(r.id) ? 'Denunciado. Gracias.' : '🚩 Denunciar contenido inadecuado'}
+                    </button>
+                  )}
                 </div>
               </li>
             );
           })}
         </ul>
+      )}
+      {MODO_SUPABASE && !coordinador && (
+        <button type="button" onClick={onIngresar} className="mt-4 w-full text-center text-[11px] text-texto-sec underline underline-offset-2">
+          Soy coordinador: revisar envíos
+        </button>
       )}
     </section>
   );

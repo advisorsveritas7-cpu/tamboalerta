@@ -27,6 +27,9 @@ export type Reporte = {
   descripcion: string | null;
   foto_url: string | null;
   video_url?: string | null;
+  aprobado?: boolean; // false = esperando revisión de un coordinador
+  denuncias?: number;
+  mio?: boolean; // enviado desde este teléfono (solo se ve aquí mientras espera revisión)
 };
 
 export type NivelAviso = 'amarillo' | 'naranja' | 'rojo';

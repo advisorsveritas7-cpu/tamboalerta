@@ -22,15 +22,41 @@ alter table public.reportes add constraint reportes_lat_check check (lat between
 alter table public.reportes add constraint reportes_lon_check check (lon between -81.5 and -79.0);
 create index if not exists reportes_creado_idx on public.reportes (creado desc);
 
+-- Revisión: ningún reporte se ve hasta que un coordinador lo aprueba (evita fotos o videos inadecuados).
+alter table public.reportes add column if not exists aprobado boolean not null default false;
+alter table public.reportes add column if not exists denuncias integer not null default 0;
+
+-- Coordinadores: correos autorizados para revisar reportes y publicar avisos.
+-- Para agregar uno:  insert into public.coordinadores (email) values ('correo@ejemplo.com');
+create table if not exists public.coordinadores (email text primary key, creado timestamptz not null default now());
+alter table public.coordinadores enable row level security;
+create or replace function public.es_coordinador() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.coordinadores where lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')));
+$$;
+grant execute on function public.es_coordinador() to anon, authenticated;
+
 alter table public.reportes enable row level security;
--- Cualquiera puede ver y crear reportes (sin cuenta, para que sea rápido en emergencia).
+-- Los vecinos ven solo lo aprobado; los coordinadores ven todo para revisarlo.
 drop policy if exists "ver reportes" on public.reportes;
-create policy "ver reportes" on public.reportes for select using (true);
+create policy "ver reportes" on public.reportes for select using (aprobado or public.es_coordinador());
+-- Cualquiera puede enviar (sin cuenta, para que sea rápido en emergencia), pero entra sin aprobar.
 drop policy if exists "crear reportes" on public.reportes;
-create policy "crear reportes" on public.reportes for insert to anon, authenticated with check (true);
--- Solo coordinadores pueden borrar (p. ej. reportes falsos).
+create policy "crear reportes" on public.reportes for insert to anon, authenticated with check (aprobado = false and denuncias = 0);
+drop policy if exists "revisar reportes" on public.reportes;
+create policy "revisar reportes" on public.reportes for update to authenticated using (public.es_coordinador()) with check (public.es_coordinador());
 drop policy if exists "borrar reportes" on public.reportes;
-create policy "borrar reportes" on public.reportes for delete to authenticated using (true);
+create policy "borrar reportes" on public.reportes for delete to authenticated using (public.es_coordinador());
+
+-- Denunciar contenido inadecuado: con 2 denuncias el reporte vuelve a revisión y deja de verse.
+create or replace function public.denunciar(p_id uuid) returns void
+language sql security definer set search_path = public as $$
+  update public.reportes
+     set denuncias = denuncias + 1,
+         aprobado = case when denuncias + 1 >= 2 then false else aprobado end
+   where id = p_id and aprobado;
+$$;
+grant execute on function public.denunciar(uuid) to anon, authenticated;
 
 -- 2. Avisos meteorológicos SENAMHI publicados por coordinadores.
 create table if not exists public.avisos (
@@ -49,9 +75,9 @@ alter table public.avisos enable row level security;
 drop policy if exists "ver avisos" on public.avisos;
 create policy "ver avisos" on public.avisos for select using (true);
 drop policy if exists "coordinadores publican" on public.avisos;
-create policy "coordinadores publican" on public.avisos for insert to authenticated with check (true);
+create policy "coordinadores publican" on public.avisos for insert to authenticated with check (public.es_coordinador());
 drop policy if exists "coordinadores retiran" on public.avisos;
-create policy "coordinadores retiran" on public.avisos for delete to authenticated using (true);
+create policy "coordinadores retiran" on public.avisos for delete to authenticated using (public.es_coordinador());
 
 -- 3. Tiempo real
 do $$
@@ -74,12 +100,12 @@ create policy "subir fotos" on storage.objects for insert to anon, authenticated
 drop policy if exists "ver fotos" on storage.objects;
 create policy "ver fotos" on storage.objects for select using (bucket_id = 'fotos');
 
--- Coordinadores: créalos en Authentication > Users > "Add user" (correo).
--- Deja desactivado "Allow new users to sign up" para que nadie más pueda publicar avisos.
+-- Coordinadores: créalos en Authentication > Users > "Add user" > "Create new user" (correo y contraseña,
+-- marcando "Auto Confirm User") y agrega su correo a public.coordinadores (ver arriba).
 
 -- Permisos de la API (necesarios si el proyecto no expone tablas nuevas automáticamente)
 grant usage on schema public to anon, authenticated;
 grant select, insert on public.reportes to anon, authenticated;
-grant delete on public.reportes to authenticated;
+grant update, delete on public.reportes to authenticated;
 grant select on public.avisos to anon, authenticated;
 grant insert, delete on public.avisos to authenticated;
