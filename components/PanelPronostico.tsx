@@ -22,9 +22,21 @@ export function PanelPronostico({ calles, horas, error, lluvia, onLluvia, aviso,
   const acum = useMemo(() => (horas ? acumulado(horas) : []), [horas]);
   const ultima = Math.max(0, acum.length - 1);
   const hayLluvia = acum.length > 0 && acum[ultima] > 0;
-  // Hora del pronóstico que se está mirando: por defecto, el final de mañana (todo lo que va a llover).
-  const [horaSel, setHoraSel] = useState(ultima);
-  useEffect(() => setHoraSel(ultima), [ultima, horas]);
+  // Días del pronóstico (hoy, mañana y los siguientes), con la última hora de cada uno.
+  const dias = useMemo(() => {
+    const ds: { fecha: string; ini: number; fin: number; mm: number }[] = [];
+    (horas ?? []).forEach((h, i) => {
+      const f = h.t.slice(0, 10);
+      const d = ds[ds.length - 1];
+      if (d && d.fecha === f) { d.fin = i; d.mm += h.mm; } else ds.push({ fecha: f, ini: i, fin: i, mm: h.mm });
+    });
+    return ds;
+  }, [horas]);
+  // Hora del pronóstico que se está mirando: por defecto, el final de mañana.
+  const porDefecto = dias.length > 1 ? dias[1].fin : ultima;
+  const [horaSel, setHoraSel] = useState(porDefecto);
+  useEffect(() => setHoraSel(porDefecto), [porDefecto, horas]);
+  const diaSel = dias.findIndex((d) => horaSel >= d.ini && horaSel <= d.fin);
   useEffect(() => {
     if (aviso) onLluvia(aviso.mm);
     else onLluvia(acum.length ? Math.round(acum[Math.min(horaSel, ultima)]) : 0);
@@ -52,7 +64,7 @@ export function PanelPronostico({ calles, horas, error, lluvia, onLluvia, aviso,
       i++;
       if (i > ultima) return parar();
       setHoraSel(i);
-    }, 220);
+    }, 90);
   };
   useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
 
@@ -88,10 +100,10 @@ export function PanelPronostico({ calles, horas, error, lluvia, onLluvia, aviso,
     : !horas
       ? error ? 'Sin conexión: no se pudo leer el pronóstico.' : 'Leyendo el pronóstico…'
       : !hayLluvia
-        ? 'El pronóstico no trae lluvia para hoy ni mañana.'
-        : horaSel >= ultima
-          ? `Con toda la lluvia pronosticada para hoy y mañana (${nombreLluvia(lluvia).toLowerCase()}, ${lluvia} mm)`
-          : `Hasta ${fechaCorta(horas[horaSel].t)}: ${lluvia} mm`;
+        ? 'El pronóstico no trae lluvia para los próximos días.'
+        : diaSel >= 0 && horaSel === dias[diaSel].fin
+          ? `Lluvia acumulada desde ahora hasta el final de ${fechaDia(dias[diaSel].fecha + 'T12:00')}: ${lluvia} mm (${nombreLluvia(lluvia).toLowerCase()})`
+          : `Lluvia acumulada hasta ${fechaCorta(horas[horaSel].t)}: ${lluvia} mm`;
 
   if (oculto) {
     return (
@@ -146,8 +158,28 @@ export function PanelPronostico({ calles, horas, error, lluvia, onLluvia, aviso,
       {/* Línea de tiempo del pronóstico */}
       {horas && hayLluvia && !aviso && (
         <div className="mt-2 rounded-xl bg-navy-700/70 px-2.5 py-2">
-          <label htmlFor="hora" className="flex items-center justify-between text-[11px] text-texto-sec">
-            <span>⏱️ Mueve para ver hora por hora</span>
+          <p className="text-[11px] text-texto-sec">📅 Elige hasta qué día ver</p>
+          <div className="-mx-1 mt-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none]" role="radiogroup" aria-label="Día del pronóstico">
+            {dias.map((d, k) => {
+              const [pre, num, mes] = fechaDia(d.fecha + 'T12:00', true).split(' ');
+              return (
+                <button
+                  key={d.fecha}
+                  type="button"
+                  role="radio"
+                  aria-checked={k === diaSel}
+                  onClick={() => { parar(); setHoraSel(d.fin); }}
+                  className={`flex shrink-0 flex-col items-center rounded-lg px-2.5 py-1 text-[11px] font-bold leading-tight ${k === diaSel ? 'bg-cian text-navy-900' : 'bg-navy-800 text-white'}`}
+                >
+                  <span className="capitalize">{pre.slice(0, k > 1 ? 3 : 7)}</span>
+                  <span className="text-[13px]">{num} {mes}</span>
+                  <span className={`text-[9px] font-semibold ${k === diaSel ? 'text-navy-900/70' : 'text-texto-sec'}`}>🌧️ {Math.round(d.mm)} mm</span>
+                </button>
+              );
+            })}
+          </div>
+          <label htmlFor="hora" className="mt-1.5 flex items-center justify-between text-[11px] text-texto-sec">
+            <span>⏱️ Hora</span>
             <span className="font-semibold text-white">{fechaCorta(horas[Math.min(horaSel, ultima)].t)}</span>
           </label>
           <input
@@ -157,18 +189,8 @@ export function PanelPronostico({ calles, horas, error, lluvia, onLluvia, aviso,
             max={ultima}
             value={Math.min(horaSel, ultima)}
             onChange={(e) => { parar(); setHoraSel(Number(e.target.value)); }}
-            className="ta-slider mt-1.5 w-full"
+            className="ta-slider mt-1 w-full"
           />
-          {/* Días debajo de la línea de tiempo */}
-          <div className="relative mt-0.5 h-3 text-[10px] text-texto-sec">
-            {horas.map((h, i) =>
-              i === 0 || h.t.endsWith('T00:00') ? (
-                <span key={h.t} className="absolute whitespace-nowrap" style={{ left: `${(i / ultima) * 100}%`, transform: i ? 'translateX(-50%)' : undefined }}>
-                  {i ? '▲ ' : ''}{fechaDia(h.t, true)}
-                </span>
-              ) : null,
-            )}
-          </div>
         </div>
       )}
 
@@ -179,7 +201,7 @@ export function PanelPronostico({ calles, horas, error, lluvia, onLluvia, aviso,
             onClick={animar}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-cian/50 py-1.5 text-xs font-bold text-cian hover:bg-cian/10"
           >
-            {animando ? '■ Detener' : '▶ Ver cómo avanza hoy y mañana'}
+            {animando ? '■ Detener' : '▶ Ver cómo avanza día a día'}
           </button>
         )}
         <button
@@ -209,7 +231,7 @@ export function PanelPronostico({ calles, horas, error, lluvia, onLluvia, aviso,
                   ))}
                 </ul>
               ) : (
-                <p className="mt-1 text-[11px] text-texto-sec">Con la lluvia pronosticada para hoy y mañana ninguna calle llega a inundarse.</p>
+                <p className="mt-1 text-[11px] text-texto-sec">Con la lluvia pronosticada para los próximos días ninguna calle llega a inundarse.</p>
               )}
             </>
           ) : (

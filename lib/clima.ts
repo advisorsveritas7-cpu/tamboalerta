@@ -6,7 +6,7 @@ export type Pronostico = {
   actualizado: string;
   actual: { temp: number; humedad: number; mm: number; codigo: number };
   horas: Hora[]; // próximas 48 h
-  total48: number; // toda la lluvia de hoy y mañana
+  total48: number; // toda la lluvia de los 7 días
   dias: { fecha: string; mm: number }[]; // lluvia de cada día (hoy desde ahora, y mañana)
   probMax: number;
   offline?: boolean;
@@ -19,7 +19,7 @@ export async function obtenerPronostico([lat, lon]: [number, number], idCiudad: 
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     '&current=temperature_2m,relative_humidity_2m,precipitation,weather_code' +
     '&hourly=temperature_2m,precipitation_probability,precipitation' +
-    '&forecast_days=2&timezone=America%2FLima';
+    '&forecast_days=7&timezone=America%2FLima';
   try {
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 12000);

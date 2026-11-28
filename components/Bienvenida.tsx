@@ -13,7 +13,7 @@ const PASOS = [
   {
     icono: '📡',
     titulo: 'El mapa sigue el pronóstico',
-    texto: 'Los colores muestran las calles que se afectarían con la lluvia pronosticada para hoy y mañana. Toca "¿Cuándo se inunda?" o una calle para ver qué día se inundaría.',
+    texto: 'Los colores muestran las calles que se afectarían con la lluvia pronosticada. Puedes elegir el día: hoy, mañana o los siguientes. Toca "¿Cuándo se inunda?" o una calle para ver qué día se inundaría.',
   },
   {
     icono: '🏃',

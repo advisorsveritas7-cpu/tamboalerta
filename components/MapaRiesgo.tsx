@@ -62,7 +62,7 @@ function popupReporte(r: Reporte) {
 function bloqueTiempo(T: number, horas: Hora[] | null) {
   if (!horas?.length) return '';
   const i = horaQueLlega(T, acumulado(horas));
-  if (i == null) return '<p>📅 Con el pronóstico de hoy y mañana <b>no llegaría a inundarse</b>.</p>';
+  if (i == null) return '<p>📅 Con el pronóstico de los próximos 7 días <b>no llegaría a inundarse</b>.</p>';
   const falta = enCuanto(horas[i].t);
   return falta === 'ya'
     ? '<p>📅 Según el pronóstico <b>ya puede estar inundándose</b>. Si estás ahí, sal a una zona alta.</p>'

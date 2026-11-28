@@ -18,10 +18,10 @@ export function PanelClima({ p, error, onSimular, onAnimacion, ciudad }: Props) 
   if (!p) {
     return (
       <section className="rounded-2xl border border-white/10 bg-navy-800 p-4">
-        <h2 className="font-display text-sm font-bold uppercase tracking-wider text-texto-sec">Pronóstico de hoy y mañana · {ciudad}</h2>
+        <h2 className="font-display text-sm font-bold uppercase tracking-wider text-texto-sec">Pronóstico de 7 días · {ciudad}</h2>
         <p className="mt-3 text-sm text-texto-sec">{error
             ? typeof window !== 'undefined' && (window as unknown as { __TA_VISTA_PREVIA?: boolean }).__TA_VISTA_PREVIA
-              ? 'La vista previa no puede consultar Open-Meteo. En la app publicada aquí aparece el pronóstico en vivo de hoy y mañana.'
+              ? 'La vista previa no puede consultar Open-Meteo. En la app publicada aquí aparece el pronóstico en vivo de 7 días.'
               : 'No se pudo cargar el pronóstico. Revisa tu conexión.'
             : 'Cargando pronóstico…'}</p>
         {botonAnimacion}
@@ -35,7 +35,7 @@ export function PanelClima({ p, error, onSimular, onAnimacion, ciudad }: Props) 
     <section className="rounded-2xl border border-white/10 bg-navy-800 p-4" aria-labelledby="clima-titulo">
       <div className="flex items-center justify-between">
         <h2 id="clima-titulo" className="font-display text-sm font-bold uppercase tracking-wider text-texto-sec">
-          Pronóstico de hoy y mañana · {ciudad}
+          Pronóstico de 7 días · {ciudad}
         </h2>
         {p.offline && <span className="text-[10px] text-aviso-naranja">sin conexión · último dato</span>}
       </div>
@@ -46,29 +46,30 @@ export function PanelClima({ p, error, onSimular, onAnimacion, ciudad }: Props) 
           <p>Humedad {p.actual.humedad}% · Lluvia ahora {p.actual.mm} mm</p>
         </div>
       </div>
-      <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
-        {(p.dias ?? []).slice(0, 2).map((d) => (
-          <Dato key={d.fecha} t={fechaDia(d.fecha + 'T12:00', true).replace(/^./, (c) => c.toUpperCase())} v={`${d.mm} mm`} />
+      <dl className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 text-center [scrollbar-width:none]">
+        {(p.dias ?? []).map((d) => (
+          <div key={d.fecha} className="min-w-[78px] shrink-0">
+            <Dato t={fechaDia(d.fecha + 'T12:00', true).replace(/^./, (c) => c.toUpperCase())} v={`${d.mm} mm`} />
+          </div>
         ))}
-        <Dato t="Prob. máx." v={`${p.probMax}%`} />
       </dl>
       <figure className="mt-3">
-        <svg viewBox={`0 0 ${W} ${H + 14}`} className="w-full" role="img" aria-label="Lluvia por hora hoy y mañana">
+        <svg viewBox={`0 0 ${W} ${H + 14}`} className="w-full" role="img" aria-label="Lluvia por hora en los próximos 7 días">
           {[0.5, 1].map((f) => (
             <line key={f} x1={0} x2={W} y1={H - H * f} y2={H - H * f} stroke="#CBD5E1" strokeOpacity={0.12} />
           ))}
           {p.horas.map((h, i) => (
             <g key={h.t}>
-              <rect x={i * bw + 0.5} y={H - H * (h.prob / 100)} width={bw - 1} height={H * (h.prob / 100)} fill="#14B8D4" opacity={0.18} />
-              <rect x={i * bw + 0.5} y={H - (H * h.mm) / maxMm} width={bw - 1} height={(H * h.mm) / maxMm} fill="#14B8D4" rx={1} />
+              <rect x={i * bw + 0.5} y={H - H * (h.prob / 100)} width={Math.max(0.6, bw - 0.4)} height={H * (h.prob / 100)} fill="#14B8D4" opacity={0.18} />
+              <rect x={i * bw + 0.5} y={H - (H * h.mm) / maxMm} width={Math.max(0.6, bw - 0.4)} height={(H * h.mm) / maxMm} fill="#14B8D4" rx={1} />
             </g>
           ))}
           {/* Rótulo de cada día donde empieza */}
           {p.horas.map((h, i) =>
-            i === 0 || h.t.endsWith('T00:00') ? (
+            (i === 0 && p.horas.findIndex((x) => x.t.endsWith('T00:00')) > 15) || (i > 0 && h.t.endsWith('T00:00')) ? (
               <g key={'d' + h.t}>
                 {i > 0 && <line x1={i * bw} x2={i * bw} y1={0} y2={H} stroke="#CBD5E1" strokeOpacity={0.35} strokeDasharray="2 2" />}
-                <text x={i * bw + 2} y={H + 11} fontSize={8} fill="#CBD5E1">{fechaDia(h.t, true)}</text>
+                <text x={i * bw + 2} y={H + 11} fontSize={8} fill="#CBD5E1">{i === 0 ? 'hoy' : Number(h.t.slice(8, 10))}</text>
               </g>
             ) : null,
           )}
