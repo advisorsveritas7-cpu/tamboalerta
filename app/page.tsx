@@ -178,7 +178,7 @@ export default function Inicio() {
       // Coordinador = sesión iniciada y correo autorizado en la lista de coordinadores.
       const revisar = (hay: boolean) => {
         if (!hay) return setCoordinador(false);
-        soyCoordinador().then((ok) => { setCoordinador(ok); recargarReportes(); });
+        soyCoordinador().catch(() => false).then((ok) => { setCoordinador(ok); recargarReportes(); });
       };
       sb.auth.getSession().then(({ data }) => revisar(!!data.session));
       const { data } = sb.auth.onAuthStateChange((_e, s) => revisar(!!s));

@@ -78,7 +78,9 @@ export async function denunciarReporte(id: string): Promise<void> {
 export async function soyCoordinador(): Promise<boolean> {
   const sb = await supabase();
   if (!sb) return true;
-  const { data } = await sb.rpc('es_coordinador');
+  const { data, error } = await sb.rpc('es_coordinador');
+  // Si la función no existe, la base de datos aún no tiene la revisión (falta ejecutar schema.sql).
+  if (error) throw new Error('BASE_SIN_REVISION');
   return data === true;
 }
 

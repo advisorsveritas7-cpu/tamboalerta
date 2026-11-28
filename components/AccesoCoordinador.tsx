@@ -24,10 +24,19 @@ export function AccesoCoordinador({ onCerrar }: { onCerrar: () => void }) {
             setMsg('Correo o contraseña incorrectos.');
             return;
           }
-          if (!(await soyCoordinador())) {
+          let ok = false;
+          try {
+            ok = await soyCoordinador();
+          } catch {
             await sb.auth.signOut();
             setEstado('error');
-            setMsg('Esa cuenta no está autorizada como coordinador.');
+            setMsg('La base de datos aún no tiene la revisión de reportes. Ejecuta schema.sql en Supabase > SQL Editor.');
+            return;
+          }
+          if (!ok) {
+            await sb.auth.signOut();
+            setEstado('error');
+            setMsg(`Tu contraseña es correcta, pero ${correo.trim()} no está en la lista de coordinadores.`);
             return;
           }
           onCerrar();
