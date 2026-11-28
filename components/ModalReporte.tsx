@@ -30,6 +30,9 @@ export function ModalReporte({ abierto, onCerrar, punto, setPunto, onElegirEnMap
   const [error, setError] = useState<string | null>(null);
   const inputFoto = useRef<HTMLInputElement>(null);
   const inputVideo = useRef<HTMLInputElement>(null);
+  // Sin "capture": abren la galería para subir fotos o videos tomados antes.
+  const galeriaFoto = useRef<HTMLInputElement>(null);
+  const galeriaVideo = useRef<HTMLInputElement>(null);
   const [video, setVideo] = useState<{ blob: Blob; tipo: string; segundos: number } | null>(null);
   const [vistaVideo, setVistaVideo] = useState<string | null>(null);
   const [avanceVideo, setAvanceVideo] = useState<number | null>(null);
@@ -205,7 +208,10 @@ export function ModalReporte({ abierto, onCerrar, punto, setPunto, onElegirEnMap
         {/* 3. Foto */}
         <fieldset className="mt-4">
           <legend className="ta-legend">3 · Foto o video (recomendado)</legend>
-          <input ref={inputFoto} id="rep-foto" type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => elegirFoto(e.target.files?.[0])} />
+          <p className="mt-1 text-[11px] text-texto-sec">Puedes tomarla ahora o subir una que ya tengas. Si es de horas antes, escribe la hora en la descripción. Videos de máximo 15 segundos (si es más largo, se usan los primeros 15).</p>
+          <input ref={inputFoto} id="rep-foto" type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { elegirFoto(e.target.files?.[0]); e.target.value = ''; }} />
+          <input ref={galeriaFoto} type="file" accept="image/*" className="hidden" onChange={(e) => { elegirFoto(e.target.files?.[0]); e.target.value = ''; }} />
+          <input ref={galeriaVideo} type="file" accept="video/*" className="hidden" onChange={(e) => { elegirVideo(e.target.files?.[0]); e.target.value = ''; }} />
           {vista ? (
             <div className="relative mt-1.5 overflow-hidden rounded-xl">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -214,17 +220,22 @@ export function ModalReporte({ abierto, onCerrar, punto, setPunto, onElegirEnMap
                 <span>
                   {pesoOriginal && foto ? `${kb(pesoOriginal)} → ${kb(foto.size)}` : ''} comprimida
                 </span>
-                <button type="button" onClick={() => inputFoto.current?.click()} className="font-semibold text-cian-300">
+                <button type="button" onClick={() => galeriaFoto.current?.click()} className="font-semibold text-cian-300">
                   Cambiar
                 </button>
               </div>
             </div>
           ) : (
-            <button type="button" onClick={() => inputFoto.current?.click()} className="ta-opcion mt-1.5 w-full py-4">
-              {comprimiendo ? 'Comprimiendo…' : '📷 Tomar o elegir foto'}
-            </button>
+            comprimiendo ? (
+              <p className="ta-opcion mt-1.5 w-full py-4 text-center">Comprimiendo…</p>
+            ) : (
+              <div className="mt-1.5 grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => inputFoto.current?.click()} className="ta-opcion py-4">📷 Tomar foto</button>
+                <button type="button" onClick={() => galeriaFoto.current?.click()} className="ta-opcion py-4">🖼️ Foto de la galería</button>
+              </div>
+            )
           )}
-          <input ref={inputVideo} type="file" accept="video/*" capture="environment" className="hidden" onChange={(e) => elegirVideo(e.target.files?.[0])} />
+          <input ref={inputVideo} type="file" accept="video/*" capture="environment" className="hidden" onChange={(e) => { elegirVideo(e.target.files?.[0]); e.target.value = ''; }} />
           {vistaVideo ? (
             <div className="relative mt-2 overflow-hidden rounded-xl bg-black">
               <video src={vistaVideo} controls playsInline muted className="max-h-48 w-full" />
@@ -234,9 +245,14 @@ export function ModalReporte({ abierto, onCerrar, punto, setPunto, onElegirEnMap
               </div>
             </div>
           ) : (
-            <button type="button" disabled={avanceVideo != null} onClick={() => inputVideo.current?.click()} className="ta-opcion mt-2 w-full py-3">
-              {avanceVideo != null ? `Achicando video… ${Math.round(avanceVideo * 100)}%` : '🎥 Grabar video corto (máx. 15 s)'}
-            </button>
+            avanceVideo != null ? (
+              <p className="ta-opcion mt-2 w-full py-3 text-center">Achicando video… {Math.round(avanceVideo * 100)}%</p>
+            ) : (
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => inputVideo.current?.click()} className="ta-opcion py-3">🎥 Grabar video</button>
+                <button type="button" onClick={() => galeriaVideo.current?.click()} className="ta-opcion py-3">📁 Video de la galería</button>
+              </div>
+            )
           )}
         </fieldset>
 
